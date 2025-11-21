@@ -63,7 +63,7 @@ resource "aws_iam_role" "github_actions" {
           StringLike = {
             # THAY_THE_USERNAME: Username GitHub của bạn
             # THAY_THE_REPO: Tên repo của bạn
-            "token.actions.githubusercontent.com:sub" : "repo:THAY_THE_USERNAME/THAY_THE_REPO:*"
+            "token.actions.githubusercontent.com:sub" : "repo:bacdang2k4/iot-project-fcj:*"
           }
         }
       }
