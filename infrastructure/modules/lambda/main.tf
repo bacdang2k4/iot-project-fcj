@@ -78,3 +78,11 @@ resource "aws_lambda_function" "violation_processor" {
     }
   }
 }
+
+output "function_arn" {
+  value = aws_lambda_function.violation_processor.arn
+}
+
+output "function_name" {
+  value = aws_lambda_function.violation_processor.function_name
+}

@@ -60,3 +60,19 @@ module "backend_lambda" {
   environment = "dev"
   table_arn   = module.database.table_arn # <-- Kết nối thần thánh ở đây
 }
+
+module "backend_lambda" {
+  source      = "../../modules/lambda"
+  environment = "dev"
+  table_arn   = module.database.table_arn
+}
+
+# THÊM MODULE IOT VÀO ĐÂY:
+module "iot" {
+  source               = "../../modules/iot"
+  environment          = "dev"
+  
+  # Lấy thông tin từ module lambda truyền sang module iot
+  lambda_function_arn  = module.backend_lambda.function_arn
+  lambda_function_name = module.backend_lambda.function_name
+}
