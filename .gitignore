@@ -1,6 +1,4 @@
-# .gitignore
-
-# Terraform temporary files
+# --- 1. Terraform ---
 **/.terraform/*
 *.tfstate
 *.tfstate.*
@@ -13,7 +11,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Java / Maven
+# --- 2. Java / Maven (Backend) ---
 target/
 *.jar
 *.war
@@ -23,12 +21,29 @@ target/
 mvnw
 mvnw.cmd
 
-# IDE files (IntelliJ / VS Code)
+# --- 3. Firmware / ESP32 (Phần mới thêm) ---
+# Thư mục build của PlatformIO (Rất nặng, không được push)
+.pio/
+.pioenvs/
+
+# File chứa Key nhạy cảm (TUYỆT ĐỐI QUAN TRỌNG)
+**/secrets.h
+**/wifi_creds.h
+
+# File biên dịch ra binary
+*.bin
+*.elf
+*.hex
+
+# File cấu hình C++ cho Neovim/Clangd (Nó chứa đường dẫn máy local của bạn)
+compile_commands.json
+.clang-format
+
+# --- 4. IDE / Editor ---
 .idea/
 *.iml
 .vscode/
 *.swp
-
-# OS generated files
+*.swo
 .DS_Store
 Thumbs.db
