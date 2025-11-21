@@ -1,0 +1,47 @@
+terraform {
+  # Cấu hình backend để lưu state lên S3
+  backend "s3" {
+    bucket         = "my-iot-project-tfstate-store-363636" # Điền tên bucket ở Bước 1
+    key            = "dev/terraform.tfstate"        # Đường dẫn file state
+    region         = "ap-southeast-1"
+    dynamodb_table = "terraform-locks"              # Điền tên table ở Bước 1
+    encrypt        = true
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-southeast-1"
+  
+  default_tags {
+    tags = {
+      Environment = "Dev"
+      Project     = "IoT-System"
+      ManagedBy   = "Terraform"
+    }
+  }
+}
+
+# Test thử tạo resource rỗng để check pipeline
+resource "aws_resourcegroups_group" "test_group" {
+  name = "test-resource-group"
+  resource_query {
+    query = <<JSON
+    {
+      "ResourceTypeFilters": ["AWS::AllSupported"],
+      "TagFilters": [
+        {
+          "Key": "Project",
+          "Values": ["IoT-System"]
+        }
+      ]
+    }
+    JSON
+  }
+}
