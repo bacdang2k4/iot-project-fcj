@@ -45,3 +45,12 @@ resource "aws_resourcegroups_group" "test_group" {
     JSON
   }
 }
+
+module "database" {
+  source      = "../../modules/database" # Trỏ tới module bạn vừa viết
+  environment = "dev"                    # Truyền biến environment vào
+}
+
+output "dynamodb_table_name" {
+  value = module.database.table_name
+}
