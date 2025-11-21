@@ -61,12 +61,6 @@ module "backend_lambda" {
   table_arn   = module.database.table_arn # <-- Kết nối thần thánh ở đây
 }
 
-module "backend_lambda" {
-  source      = "../../modules/lambda"
-  environment = "dev"
-  table_arn   = module.database.table_arn
-}
-
 # THÊM MODULE IOT VÀO ĐÂY:
 module "iot" {
   source               = "../../modules/iot"
