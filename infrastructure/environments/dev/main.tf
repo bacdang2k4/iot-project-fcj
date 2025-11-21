@@ -54,3 +54,9 @@ module "database" {
 output "dynamodb_table_name" {
   value = module.database.table_name
 }
+
+module "backend_lambda" {
+  source      = "../../modules/lambda"
+  environment = "dev"
+  table_arn   = module.database.table_arn # <-- Kết nối thần thánh ở đây
+}
