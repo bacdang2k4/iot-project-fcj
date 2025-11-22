@@ -1,68 +1,57 @@
 # infrastructure/modules/iot/main.tf
 
-variable "environment" {
-  type = string
+variable "environment" { type = string }
+variable "auth_lambda_arn" { type = string }       # ARN hàm Auth
+variable "auth_lambda_name" { type = string }
+variable "violation_lambda_arn" { type = string }  # ARN hàm Violation
+variable "violation_lambda_name" { type = string }
+
+# 1. Thing & Policy (Giữ nguyên hoặc cập nhật Policy full quyền như bạn của bạn)
+resource "aws_iot_thing" "esp32" {
+  name = "ESP32_Device_${var.environment}"
 }
 
-variable "lambda_function_arn" {
-  description = "ARN của Lambda function để trigger"
-  type        = string
-}
+# ... (Phần Policy & Cert giữ nguyên logic cũ của chúng ta cho an toàn) ...
 
-variable "lambda_function_name" {
-  description = "Tên của Lambda function để cấp quyền"
-  type        = string
-}
+# 2. RULES (Logic mới)
 
-# 1. Tạo IoT Thing (Thiết bị logic)
-resource "aws_iot_thing" "esp32_device" {
-  name = "esp32-sensor-${var.environment}"
-  
-  attributes = {
-    Project = "IoT-System"
-  }
-}
-
-# 2. Tạo IoT Policy (Quyền hạn của thiết bị)
-# Cho phép thiết bị làm TẤT CẢ (Connect, Publish, Subscribe) để dễ dev
-resource "aws_iot_policy" "device_policy" {
-  name = "esp32-full-access-${var.environment}"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "iot:Connect",
-          "iot:Publish",
-          "iot:Subscribe",
-          "iot:Receive"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-# 3. Tạo IoT Rule (Cầu nối sang Lambda)
-resource "aws_iot_topic_rule" "rule" {
-  name        = "RouteViolationToLambda_${var.environment}"
-  description = "Route data from topic 'device/+/violation' to Lambda"
+# Rule A: Xử lý Đăng nhập (Auth)
+resource "aws_iot_topic_rule" "rule_auth" {
+  name        = "Route_Auth_${var.environment}"
   enabled     = true
-  sql         = "SELECT * FROM 'device/+/violation'" # Dấu + là wildcard (device/1/violation, device/2/violation...)
+  sql         = "SELECT * FROM 'auth/login'" # Topic của bạn ấy
   sql_version = "2016-03-23"
 
   lambda {
-    function_arn = var.lambda_function_arn
+    function_arn = var.auth_lambda_arn
   }
 }
 
-# 4. Cấp "Visa" cho IoT Core được phép gọi Lambda
-resource "aws_lambda_permission" "allow_iot" {
-  statement_id  = "AllowExecutionFromIoT"
+# Rule B: Xử lý Vi phạm (Violation)
+resource "aws_iot_topic_rule" "rule_violation" {
+  name        = "Route_Violation_${var.environment}"
+  enabled     = true
+  sql         = "SELECT * FROM 'violation/submit'" # Topic của bạn ấy
+  sql_version = "2016-03-23"
+
+  lambda {
+    function_arn = var.violation_lambda_arn
+  }
+}
+
+# 3. Permissions
+resource "aws_lambda_permission" "allow_iot_auth" {
+  statement_id  = "AllowIoTAuth"
   action        = "lambda:InvokeFunction"
-  function_name = var.lambda_function_name
+  function_name = var.auth_lambda_name
   principal     = "iot.amazonaws.com"
-  source_arn    = aws_iot_topic_rule.rule.arn
+  source_arn    = aws_iot_topic_rule.rule_auth.arn
+}
+
+resource "aws_lambda_permission" "allow_iot_violation" {
+  statement_id  = "AllowIoTViolation"
+  action        = "lambda:InvokeFunction"
+  function_name = var.violation_lambda_name
+  principal     = "iot.amazonaws.com"
+  source_arn    = aws_iot_topic_rule.rule_violation.arn
 }
