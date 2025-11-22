@@ -56,7 +56,7 @@ SystemState currentState = ST_LOGIN;
 // Biến dữ liệu
 int valAlcohol = 0;
 String userCCCD = "";
-String deviceID = "ESP32_VIOLATION_01";
+String deviceID = "ESP32_Device_dev";
 
 // Thông tin cán bộ (Sẽ được điền khi login thành công)
 String currentOfficerName = "";
@@ -148,6 +148,11 @@ void connectAWS() {
   } else {
     Serial.println("AWS Failed!");
     lcd.clear(); lcd.print("AWS Failed!");
+    Serial.println(client.state());
+    // -2: Lỗi mạng/Socket
+    // -4: Timeout
+    // -5: Sai chứng chỉ (Unauthorized) hoặc Sai giờ hệ thống
+    lcd.clear(); lcd.print("Err Code: "); lcd.print(client.state());
   }
   delay(1000);
 }
