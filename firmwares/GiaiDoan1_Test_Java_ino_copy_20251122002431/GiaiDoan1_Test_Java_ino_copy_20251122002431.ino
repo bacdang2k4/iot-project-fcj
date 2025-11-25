@@ -17,10 +17,10 @@
 #define TOPIC_LOGIN    "auth/login"
 #define TOPIC_RESPONSE "auth/response"
 #define TOPIC_SUBMIT   "violation/submit"
-
+#define BASE_READING 571 // Giá trị môi trường sạch bạn vừa đo
 // Cấu hình chân
 #define MQ3_PIN 34
-#define ALCOHOL_THRESHOLD 800 
+#define ALCOHOL_THRESHOLD 0.05
 
 // --- KHỞI TẠO ĐỐI TƯỢNG ---
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -54,7 +54,7 @@ enum SystemState {
 SystemState currentState = ST_LOGIN;
 
 // Biến dữ liệu
-int valAlcohol = 0;
+float valAlcohol = 0.0;
 String userCCCD = "";
 String deviceID = "ESP32_Device_dev";
 
@@ -259,33 +259,49 @@ void loop() {
       break;
 
     // --- 3. ĐO CỒN ---
+    // --- XỬ LÝ SỐ LIỆU CỒN (ĐÃ CHỈNH SỬA LOGIC) ---
     case ST_MEASURE_ALC:
       {
         long startTime = millis();
-        int maxAlc = 0;
+        int maxRaw = 0; // Giá trị thô lớn nhất đọc được
         lcd.clear();
         
-        while (millis() - startTime < 3000) {
+        // Đo trong 4 giây để lấy đỉnh hơi thở
+        while (millis() - startTime < 4000) {
           int curr = analogRead(MQ3_PIN);
-          if (curr > maxAlc) maxAlc = curr;
-          lcd.setCursor(0,0); lcd.print("Thoi Manh! "); lcd.print(3 - (millis()-startTime)/1000);
-          lcd.setCursor(0,1); lcd.print("Val: "); lcd.print(curr); lcd.print("   ");
+          if (curr > maxRaw) maxRaw = curr;
+          
+          lcd.setCursor(0,0); lcd.print("Thoi Manh! "); lcd.print(4 - (millis()-startTime)/1000);
+          lcd.setCursor(0,1); lcd.print("Raw: "); lcd.print(curr); lcd.print("   ");
           delay(50);
         }
 
-        if (maxAlc < 100) {
-           lcd.clear(); lcd.print("Loi: Thoi lai!");
+        // --- CÔNG THỨC CHUYỂN ĐỔI ---
+        // 1. Trừ đi nhiễu nền (571)
+        int diff = maxRaw - BASE_READING;
+        if (diff < 0) diff = 0; 
+
+        // 2. Chia tỉ lệ (Calibration)
+        // Giả sử tăng 2000 đơn vị raw ~ 1.0 mg/L
+        // Nếu muốn nhạy hơn thì giảm số 2000 xuống (vd: 1500)
+        valAlcohol = (float)diff / 2000.0; 
+
+        lcd.clear(); 
+        lcd.print("Ket qua:"); lcd.print(valAlcohol, 2); lcd.print("mg/L");
+        
+        // Kiểm tra xem có hơi thở không (hay chỉ là không khí)
+        // Ngưỡng phát hiện thổi: Base + 50 đơn vị nhiễu (571 + 50 = 621)
+        if (maxRaw < (BASE_READING + 50)) {
+           lcd.setCursor(0,1); lcd.print("Loi: Thoi lai!");
            delay(2000);
            resetToIdle();
         } else {
-           valAlcohol = maxAlc;
-           lcd.clear(); 
-           lcd.print("Con: "); lcd.print(valAlcohol);
-           if(valAlcohol > ALCOHOL_THRESHOLD) lcd.print(" CAO");
-           else lcd.print(" OK");
+           // Có thổi -> Kiểm tra vi phạm (> 0.05 để tránh sai số nhỏ)
+           lcd.setCursor(0,1); 
+           if(valAlcohol > 0.05) lcd.print("VI PHAM!    ");
+           else lcd.print("KHONG VI PHAM");
            
-           // Bỏ qua tim, nhảy sang check luôn
-           delay(2000);
+           delay(3000); // Dừng 3s để đọc kết quả
            currentState = ST_CHECK_HEALTH;
         }
       }
@@ -315,17 +331,40 @@ void loop() {
       break;
 
     // --- 5. NHẬP CCCD ---
+    // --- 5. NHẬP CCCD (ĐÃ CẬP NHẬT CHECK 12 SỐ) ---
     case ST_INPUT_CCCD:
       {
          lcd.setCursor(0, 1); lcd.print(userCCCD); 
+         
          if (key) {
+            // 1. Nhập số (Chỉ cho nhập tối đa 12 số để tránh tràn màn hình)
             if (key >= '0' && key <= '9') {
-              if (userCCCD.length() < 12) userCCCD += key;
-            } else if (key == '*') {
+              if (userCCCD.length() < 12) {
+                 userCCCD += key;
+              }
+            } 
+            // 2. Nút Xóa (Phím *) - Xóa làm lại
+            else if (key == '*') {
               userCCCD = "";
-              lcd.setCursor(0,1); lcd.print("                ");
-            } else if (key == 'C') {
-              if (userCCCD.length() > 0) currentState = ST_SEND_DATA;
+              lcd.setCursor(0,1); lcd.print("                "); // Xóa dòng hiển thị
+            } 
+            // 3. Nút Xác nhận (Phím C)
+            else if (key == 'C') {
+              // --- LOGIC KIỂM TRA ĐỘ DÀI ---
+              if (userCCCD.length() == 12) {
+                // Đúng chuẩn 12 số -> Đi tiếp
+                currentState = ST_SEND_DATA;
+              } else {
+                // Sai định dạng -> Báo lỗi
+                lcd.clear();
+                lcd.print("SAI DINH DANG!");
+                lcd.setCursor(0,1); lcd.print("Phai du 12 so");
+                delay(2000);
+                
+                // Reset lại để nhập lại
+                userCCCD = "";
+                lcd.clear(); lcd.print("Nhap CCCD:");
+              }
             }
          }
       }
