@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 15% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 20%;
+
+    /* Primary - Traffic Blue */
+    --primary: 217 91% 45%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Official Gray */
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 220 15% 20%;
+
+    /* Muted */
+    --muted: 220 13% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Accent - Warning Red */
+    --accent: 0 85% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Warning Yellow */
+    --warning: 45 93% 58%;
+    --warning-foreground: 220 15% 20%;
+
+    /* Success Green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 45%;
+
+    --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 217 91% 45%;
+    --chart-2: 0 85% 60%;
+    --chart-3: 45 93% 58%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 280 65% 60%;
+  }
+
+  .dark {
+    --background: 220 20% 10%;
+    --foreground: 220 13% 95%;
+
+    --card: 220 18% 14%;
+    --card-foreground: 220 13% 95%;
+
+    --popover: 220 18% 14%;
+    --popover-foreground: 220 13% 95%;
+
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 220 13% 95%;
+
+    --muted: 220 15% 20%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 0 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --warning: 45 93% 58%;
+    --warning-foreground: 220 15% 10%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 85% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 25%;
+    --input: 220 15% 25%;
+    --ring: 217 91% 55%;
+
+    --chart-1: 217 91% 55%;
+    --chart-2: 0 85% 55%;
+    --chart-3: 45 93% 58%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 280 65% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-image: url("/Trong_Dong.png");
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+}
