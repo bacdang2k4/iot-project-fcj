@@ -154,9 +154,41 @@ module "api" {
   source      = "../../modules/api"
   environment = "dev"
 
-  # Truyền thông tin Lambda Dashboard vào để API Gateway kết nối
   dashboard_lambda_arn  = module.lambda_dashboard.function_arn
-  dashboard_lambda_name = module.lambda_dashboard.function_name # <-- Chú ý: Cần thêm output này ở module lambda cũ nếu chưa có
+  dashboard_lambda_name = module.lambda_dashboard.function_name
+  
+  # --- THÊM DÒNG NÀY ---
+  search_lambda_arn     = module.lambda_search.function_arn
+  search_lambda_name    = module.lambda_search.function_name
+}
+
+# ==============================================================================
+# 7. LAMBDA: TÌM KIẾM (Search Function)
+# ==============================================================================
+module "lambda_search" {
+  source        = "../../modules/lambda"
+  environment   = "dev"
+  
+  function_name = "SearchByCCCDFunction"
+  source_dir    = "${path.module}/../../../services/search-service"
+  handler       = "search_violation.lambda_handler"
+  
+  env_vars = {
+    TABLE_NAME = module.database.violations_table_name
+  }
+
+  # Cấp quyền QUERY vào bảng và đặc biệt là vào INDEX
+  iam_policy_json = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action   = ["dynamodb:Query", "dynamodb:GetItem"],
+      Effect   = "Allow",
+      Resource = [
+        module.database.violations_table_arn,
+        "${module.database.violations_table_arn}/index/*" # Cho phép query vào Index phụ
+      ]
+    }]
+  })
 }
 
 # ==============================================================================
