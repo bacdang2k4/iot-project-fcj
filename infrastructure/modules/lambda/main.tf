@@ -1,88 +1,60 @@
 # infrastructure/modules/lambda/main.tf
 
-variable "environment" {
-  description = "Môi trường (dev/prod)"
-  type        = string
+variable "environment" { type = string }
+variable "function_name" { type = string } # Tên hàm linh hoạt
+variable "source_dir" { type = string }    # Đường dẫn code linh hoạt
+variable "handler" { type = string }       # Handler linh hoạt
+variable "env_vars" {                      # Biến môi trường linh hoạt
+  type    = map(string)
+  default = {}
+}
+variable "iam_policy_json" {               # Policy riêng cho từng hàm
+  type = string
 }
 
-variable "table_arn" {
-  description = "ARN của bảng DynamoDB để cấp quyền ghi"
-  type        = string
-}
-
-# 1. Tạo file code dummy để deploy lần đầu (tránh lỗi thiếu file code)
-data "archive_file" "dummy_code" {
+# 1. Zip code
+data "archive_file" "lambda_zip" {
   type        = "zip"
-  output_path = "${path.module}/dummy_payload.zip"
-  
-  source {
-    content  = "exports.handler = async (event) => { return 'Hello from Terraform Lambda!'; }"
-    filename = "index.js"
-  }
+  source_dir  = var.source_dir
+  output_path = "${path.module}/${var.function_name}.zip"
 }
 
-# 2. IAM Role: Cho phép Lambda chạy và ghi log
+# 2. Role (Tạo riêng cho từng function để bảo mật)
 resource "aws_iam_role" "lambda_role" {
-  name = "iot_lambda_role_${var.environment}"
-
+  name = "${var.function_name}_role_${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
+      Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
 }
 
-# Cấp quyền cơ bản (ghi log ra CloudWatch)
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+resource "aws_iam_role_policy_attachment" "basic" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# 3. IAM Policy: Cấp quyền GHI vào bảng DynamoDB cụ thể
-resource "aws_iam_role_policy" "dynamodb_write_policy" {
-  name = "dynamodb_write_access"
-  role = aws_iam_role.lambda_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:GetItem"
-        ]
-        Effect   = "Allow"
-        Resource = var.table_arn # Chỉ cho phép ghi vào đúng bảng này
-      }
-    ]
-  })
+resource "aws_iam_role_policy" "custom_policy" {
+  name   = "${var.function_name}_policy"
+  role   = aws_iam_role.lambda_role.id
+  policy = var.iam_policy_json
 }
 
-# 4. Tạo Lambda Function
-resource "aws_lambda_function" "violation_processor" {
-  function_name = "ProcessViolationFunction-${var.environment}"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "index.handler"
-  runtime       = "nodejs18.x" # Tạm thời dùng Nodejs để test nhẹ nhàng
-  
-  filename         = data.archive_file.dummy_code.output_path
-  source_code_hash = data.archive_file.dummy_code.output_base64sha256
+# 3. Function
+resource "aws_lambda_function" "func" {
+  function_name    = "${var.function_name}-${var.environment}"
+  role             = aws_iam_role.lambda_role.arn
+  runtime          = "python3.9"
+  handler          = var.handler
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  timeout          = 10
 
   environment {
-    variables = {
-      ENVIRONMENT = var.environment
-    }
+    variables = merge({ ENVIRONMENT = var.environment }, var.env_vars)
   }
 }
 
-output "function_arn" {
-  value = aws_lambda_function.violation_processor.arn
-}
-
-output "function_name" {
-  value = aws_lambda_function.violation_processor.function_name
-}
+output "function_arn"  { value = aws_lambda_function.func.arn }
+output "function_name" { value = aws_lambda_function.func.function_name }

@@ -1,36 +1,25 @@
-# infrastructure/modules/database/main.tf
-
 variable "environment" {
-  description = "Môi trường triển khai (dev/prod)"
-  type        = string
+  type = string
 }
 
+# ==============================================================================
+# 1. Bảng Vi phạm (ViolationDB)
+# ==============================================================================
 resource "aws_dynamodb_table" "violations" {
   name           = "iot-violations-${var.environment}"
-  billing_mode   = "PAY_PER_REQUEST" # Dùng bao nhiêu trả bấy nhiêu (Serverless)
-  hash_key       = "violation_id"
-  range_key      = "created_at"
-
-  attribute {
-    name = "violation_id"
-    type = "S" # String
-  }
-
-  attribute {
-    name = "created_at"
-    type = "N" # Number (Timestamp)
-  }
+  billing_mode   = "PAY_PER_REQUEST"
   
-  # Global Secondary Index để tìm kiếm theo CCCD
-  global_secondary_index {
-    name               = "CCCDIndex"
-    hash_key           = "cccd_number"
-    projection_type    = "ALL"
+  hash_key       = "cccd"
+  range_key      = "timestamp"
+
+  attribute {
+    name = "cccd"
+    type = "S"
   }
 
   attribute {
-    name = "cccd_number"
-    type = "S"
+    name = "timestamp"
+    type = "N"
   }
 
   tags = {
@@ -39,10 +28,47 @@ resource "aws_dynamodb_table" "violations" {
   }
 }
 
-output "table_name" {
+# ==============================================================================
+# 2. Bảng Cán bộ (OfficerDB)
+# ==============================================================================
+resource "aws_dynamodb_table" "officers" {
+  name           = "iot-officers-${var.environment}"
+  billing_mode   = "PAY_PER_REQUEST"
+  
+  hash_key       = "device_id"
+  range_key      = "finger_id"
+
+  attribute {
+    name = "device_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "finger_id"
+    type = "N"
+  }
+
+  tags = {
+    Name        = "iot-officers-${var.environment}"
+    Environment = var.environment
+  }
+}
+
+# ==============================================================================
+# OUTPUTS
+# ==============================================================================
+output "violations_table_name" {
   value = aws_dynamodb_table.violations.name
 }
 
-output "table_arn" {
+output "violations_table_arn" {
   value = aws_dynamodb_table.violations.arn
+}
+
+output "officers_table_name" {
+  value = aws_dynamodb_table.officers.name
+}
+
+output "officers_table_arn" {
+  value = aws_dynamodb_table.officers.arn
 }
