@@ -46,7 +46,7 @@ module "lambda_violation" {
   function_name = "ProcessViolation"
   # Trỏ tới thư mục code Python cho xử lý vi phạm
   source_dir    = "${path.module}/../../../services/violation-service"
-  handler       = "lambda_function.lambda_handler"
+  handler       = "process_violation.lambda_handler"
   
   # Truyền tên bảng Vi phạm vào biến môi trường
   env_vars = {
