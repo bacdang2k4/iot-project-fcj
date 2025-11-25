@@ -147,9 +147,16 @@ module "lambda_dashboard" {
   })
 }
 
-# Thêm output để tiện debug sau này
-output "dashboard_lambda_arn" {
-  value = module.lambda_dashboard.function_arn
+# ==============================================================================
+# 6. API GATEWAY (Cửa ngõ ra Internet)
+# ==============================================================================
+module "api" {
+  source      = "../../modules/api"
+  environment = "dev"
+
+  # Truyền thông tin Lambda Dashboard vào để API Gateway kết nối
+  dashboard_lambda_arn  = module.lambda_dashboard.function_arn
+  dashboard_lambda_name = module.lambda_dashboard.function_name # <-- Chú ý: Cần thêm output này ở module lambda cũ nếu chưa có
 }
 
 # ==============================================================================
@@ -161,4 +168,12 @@ output "violation_table" {
 
 output "officer_table" {
   value = module.database.officers_table_name
+}
+
+output "dashboard_lambda_arn" {
+  value = module.lambda_dashboard.function_arn
+}
+
+output "api_url" {
+  value = module.api.api_endpoint
 }
