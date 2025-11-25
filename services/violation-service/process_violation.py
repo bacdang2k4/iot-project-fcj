@@ -18,6 +18,7 @@ def lambda_handler(event, context):
         cccd_number = event.get('cccd', 'Unknown_CCCD') 
         device_id = event.get('id', 'Unknown_Device')
         officer_id = event.get('officer_id', 'Unknown_Officer')
+        officer_name = event.get('officer_name', 'Unknown_Name')
         
         alcohol_val = event.get('alc', 0)
         bpm_val = event.get('bpm', 0)
@@ -39,6 +40,7 @@ def lambda_handler(event, context):
             # --- Các thuộc tính khác ---
             'device_id': device_id,
             'officer_id': officer_id,
+            'officer_name': officer_name,
             'timestamp_human': readable_time,
             'alcohol_level': Decimal(str(alcohol_val)),
             'heart_rate': Decimal(str(bpm_val)),
