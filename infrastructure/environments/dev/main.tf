@@ -116,6 +116,43 @@ module "iot" {
 }
 
 # ==============================================================================
+# 5. LAMBDA: DASHBOARD (Đọc dữ liệu hiển thị lên Web)
+# ==============================================================================
+module "lambda_dashboard" {
+  source        = "../../modules/lambda"
+  environment   = "dev"
+  
+  function_name = "GetDashboardFunction"
+  # Trỏ tới thư mục code Python vừa tạo
+  source_dir    = "${path.module}/../../../services/dashboard-service"
+  handler       = "get_dashboard.lambda_handler"
+  
+  # Truyền tên bảng Vi phạm vào biến môi trường
+  env_vars = {
+    TABLE_NAME = module.database.violations_table_name
+  }
+
+  # Cấp quyền CHỈ ĐỌC (Scan/Query) vào bảng Vi phạm
+  iam_policy_json = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action   = [
+        "dynamodb:Scan", 
+        "dynamodb:Query", 
+        "dynamodb:GetItem"
+      ],
+      Effect   = "Allow",
+      Resource = module.database.violations_table_arn
+    }]
+  })
+}
+
+# Thêm output để tiện debug sau này
+output "dashboard_lambda_arn" {
+  value = module.lambda_dashboard.function_arn
+}
+
+# ==============================================================================
 # OUTPUTS
 # ==============================================================================
 output "violation_table" {
