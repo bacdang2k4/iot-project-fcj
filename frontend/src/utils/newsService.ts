@@ -7,10 +7,16 @@ const RSS_FEEDS = {
   thanhnien: "https://thanhnien.vn/rss/thoi-su/phap-luat.rss",
 };
 
+<<<<<<< HEAD
 const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache
 const FEED_TIMEOUT_MS = 6000; // 6 seconds timeout
 const MAX_ITEMS_PER_FEED = 3; // Fewer items per feed
 const MAX_TOTAL_NEWS = 3; // Max 8 news items total
+=======
+const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const FEED_TIMEOUT_MS = 6000; // 6 seconds
+const MAX_ITEMS_PER_FEED = 5; // 3 items per feed
+>>>>>>> 798bafeb3e4102565ffcf47a4de311a496aa5d7f
 
 let cachedNews: {
   data: BlogPost[];
@@ -231,8 +237,13 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
       )
     );
     
+<<<<<<< HEAD
     // Return top items only
     const topNews = uniqueNews.slice(0, MAX_TOTAL_NEWS);
+=======
+    // Return top 3 most recent news items
+    const topNews = uniqueNews.slice(0, 20);
+>>>>>>> 798bafeb3e4102565ffcf47a4de311a496aa5d7f
     cachedNews = {
       data: topNews,
       timestamp: now,
