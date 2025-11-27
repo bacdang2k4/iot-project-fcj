@@ -1,3 +1,9 @@
+# Lấy thông tin về Account ID hiện tại đang chạy
+data "aws_caller_identity" "current" {}
+
+# Lấy thông tin về Region hiện tại (ap-southeast-1)
+data "aws_region" "current" {}
+
 variable "environment" { type = string }
 variable "dashboard_lambda_arn" { type = string }
 variable "dashboard_lambda_name" { type = string }
@@ -69,5 +75,5 @@ resource "aws_lambda_permission" "api_search" {
 
 output "api_endpoint" { value = aws_apigatewayv2_api.main.api_endpoint }
 output "stage_arn" {
-  value = aws_apigatewayv2_stage.stage.arn
+  value = "arn:aws:apigateway:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:/apis/${aws_apigatewayv2_api.main.id}/stages/${aws_apigatewayv2_stage.stage.name}"
 }
