@@ -209,7 +209,7 @@ module "frontend" {
   github_token = var.github_token
   
   # Lấy URL từ API Gateway truyền sang Frontend
-  api_url = module.api.api_url 
+  api_url = module.api.api_endpoint 
 }
 
 # ==============================================================================
