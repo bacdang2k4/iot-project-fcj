@@ -8,7 +8,7 @@ const RSS_FEEDS = {
 
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const FEED_TIMEOUT_MS = 6000; // Reduced from 6000ms
-const MAX_ITEMS_PER_FEED = 200; // Reduced from 8
+const MAX_ITEMS_PER_FEED = 100; // Reduced from 8
 
 let cachedNews: {
   data: BlogPost[];
