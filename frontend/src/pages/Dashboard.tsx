@@ -21,9 +21,11 @@ import {
 import { DashboardReading, ViolationStats } from "@/types";
 import { TrendingUp, AlertCircle, Users } from "lucide-react";
 
+// --- SỬA LỖI Ở ĐÂY ---
 const getReadingDate = (reading: DashboardReading): Date | null => {
   if (Number.isFinite(reading.timestamp) && reading.timestamp > 0) {
-    return new Date(reading.timestamp * 1000);
+    // Backend Python trả về Milliseconds, nên KHÔNG nhân 1000 nữa
+    return new Date(reading.timestamp); 
   }
 
   if (reading.timestamp_human) {
@@ -36,6 +38,7 @@ const getReadingDate = (reading: DashboardReading): Date | null => {
 
   return null;
 };
+// --------------------
 
 const Dashboard = () => {
   const [stats, setStats] = useState<ViolationStats[]>([]);
@@ -50,7 +53,8 @@ const Dashboard = () => {
       try {
         const data = await fetchDashboardReadings();
         setReadings(data);
-        setStats(aggregateReadingsByMonth(data));
+        // aggregateReadingsByMonth trong api.ts cũng cần đảm bảo logic ngày tháng đúng
+        setStats(aggregateReadingsByMonth(data)); 
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -82,6 +86,7 @@ const Dashboard = () => {
   const avgViolations =
     stats.length > 0 ? Math.round(totalViolations / stats.length) : 0;
   const uniqueOffenders = new Set(readings.map((item) => item.cccd)).size;
+  
   const severityDistribution = useMemo(() => {
     if (!severityYear) {
       return [];
@@ -90,6 +95,7 @@ const Dashboard = () => {
     const counts = { high: 0, medium: 0, low: 0 };
     readings.forEach((reading) => {
       const date = getReadingDate(reading);
+      // Nếu date sai (do nhân 1000), năm sẽ là 50xxx -> không khớp severityYear
       if (!date || date.getFullYear() !== severityYear) {
         return;
       }
@@ -139,7 +145,9 @@ const Dashboard = () => {
       },
     ];
   }, [readings, severityYear]);
+
   const hasReadings = readings.length > 0;
+  
   const monthlyChartData = useMemo(() => {
     if (!selectedYear) {
       return [];
