@@ -12,9 +12,9 @@ const AboutUs = () => {
       <Card className="py-2">
         <div className="prose max-w-none">
           <p className="text-base md:text-lg text-gray-800 leading-relaxed drop-shadow-sm">
-            Hệ thống giám sát và xử phạt vi phạm nồng độ cồn khi tham gia giao thông là một nền tảng
-            công nghệ hiện đại, được phát triển nhằm hỗ trợ công tác quản lý, giám sát và xử lý các
-            trường hợp vi phạm liên quan đến nồng độ cồn trên đường bộ.
+            Hệ thống giám sát và xử lý vi phạm nồng độ cồn là một nền tảng công nghệ được xây dựng để hỗ trợ việc phát hiện, ghi nhận và xử lý các trường hợp vi phạm nồng độ cồn khi tham gia giao thông.
+Hệ thống được triển khai trên nền tảng máy chủ đám mây hiện đại của AWS , đảm bảo hoạt động ổn định và có thể mở rộng khi cần thiết. Quá trình cập nhật và vận hành hệ thống được tự động hóa để đảm bảo tính sẵn sàng và hiệu quả.
+Hệ thống giúp lực lượng chức năng dễ dàng theo dõi, ghi nhận và xử lý các trường hợp vi phạm nồng độ cồn một cách nhanh chóng và chính xác, từ đó nâng cao hiệu quả công tác kiểm tra và xử lý vi phạm trên các tuyến đường.
           </p>
         </div>
       </Card>
@@ -123,13 +123,13 @@ const AboutUs = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <h4 className="font-semibold text-base md:text-lg text-gray-700 mb-3 drop-shadow-sm">Địa chỉ</h4>
-            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Cục CSGT - Bộ Công An</p>
-            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Hà Nội, Việt Nam</p>
+            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Spica AWS First Cloud Journey</p>
+            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Hồ CHí Minh, Việt Nam</p>
           </div>
           <div>
             <h4 className="font-semibold text-base md:text-lg text-gray-700 mb-3 drop-shadow-sm">Liên hệ</h4>
-            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Email: contact@traffic-alcohol.vn</p>
-            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Hotline: 1900 1234</p>
+            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Email: namdhse180349@fpt.edu.vn</p>
+            <p className="text-base md:text-lg text-gray-800 drop-shadow-sm">Hotline: 0911293401</p>
           </div>
         </div>
       </Card>

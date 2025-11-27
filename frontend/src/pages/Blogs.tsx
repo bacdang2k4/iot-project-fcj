@@ -82,10 +82,11 @@ const Blogs = () => {
         >
           <Card className="overflow-hidden p-2 cursor-pointer hover:scale-[1.01] transition-transform">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="h-64 md:h-full rounded-lg overflow-hidden relative">
+              <div className="h-64 md:h-full rounded-lg overflow-hidden relative bg-gray-200">
                 <img
                   src={posts[0].imageUrl}
                   alt={posts[0].title}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
                 {posts[0].externalLink && (
@@ -129,10 +130,11 @@ const Blogs = () => {
             className="block no-underline"
           >
             <Card className="overflow-hidden hover:shadow-2xl transition-all cursor-pointer">
-              <div className="h-48 md:h-56 overflow-hidden rounded-t-lg relative">
+              <div className="h-48 md:h-56 overflow-hidden rounded-t-lg relative bg-gray-200">
                 <img
                   src={post.imageUrl}
                   alt={post.title}
+                  loading="lazy"
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 />
                 {post.externalLink && (

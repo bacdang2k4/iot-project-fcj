@@ -1,15 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import SearchInput from "@/components/SearchInput";
 import Card from "@/components/Card";
 import { searchByCCCD } from "@/utils/api";
-import { CitizenInfo } from "@/types";
-import { AlertCircle, CheckCircle, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { DashboardReading } from "@/types";
+import { AlertCircle, CalendarClock, UserCheck } from "lucide-react";
 
 const Infomation = () => {
   const [cccd, setCccd] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<CitizenInfo | null>(null);
+  const [results, setResults] = useState<DashboardReading[]>([]);
   const [notFound, setNotFound] = useState(false);
 
   const handleSearch = async () => {
@@ -17,12 +16,12 @@ const Infomation = () => {
 
     setLoading(true);
     setNotFound(false);
-    setResult(null);
+    setResults([]);
 
     try {
       const data = await searchByCCCD(cccd.trim());
-      if (data) {
-        setResult(data);
+      if (data.length > 0) {
+        setResults(data);
       } else {
         setNotFound(true);
       }
@@ -34,31 +33,18 @@ const Infomation = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "paid":
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case "unpaid":
-        return <AlertCircle className="h-5 w-5 text-red-600" />;
-      case "processing":
-        return <Clock className="h-5 w-5 text-yellow-600" />;
-      default:
-        return null;
-    }
-  };
+  const sortedResults = useMemo(
+    () =>
+      [...results].sort((a, b) => {
+        if (Number.isFinite(a.timestamp) && Number.isFinite(b.timestamp)) {
+          return b.timestamp - a.timestamp;
+        }
+        return (b.timestamp_human || "").localeCompare(a.timestamp_human || "");
+      }),
+    [results]
+  );
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "Đã nộp";
-      case "unpaid":
-        return "Chưa nộp";
-      case "processing":
-        return "Đang xử lý";
-      default:
-        return status;
-    }
-  };
+  const latestRecord = sortedResults[0];
 
   return (
     <div className="space-y-8">
@@ -102,73 +88,77 @@ const Infomation = () => {
         </Card>
       )}
 
-      {result && !loading && (
+      {sortedResults.length > 0 && !loading && (
         <div className="space-y-8">
-          <Card title="Thông tin cá nhân" className="py-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-base md:text-lg text-gray-700 drop-shadow-sm">Số CCCD</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-2 drop-shadow-sm">{result.cccd}</p>
+          <Card title="Kết quả tra cứu" className="py-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="flex items-center gap-3">
+                <UserCheck className="h-10 w-10 text-blue-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Số CCCD đã nhập</p>
+                  <p className="text-xl font-bold text-gray-900">{cccd.trim()}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-base md:text-lg text-gray-700 drop-shadow-sm">Họ và tên</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-2 drop-shadow-sm">{result.name}</p>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-10 w-10 text-red-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Số lần vi phạm</p>
+                  <p className="text-xl font-bold text-gray-900">{sortedResults.length}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-base md:text-lg text-gray-700 drop-shadow-sm">Ngày sinh</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-2 drop-shadow-sm">{result.birthDate}</p>
-              </div>
-              <div>
-                <p className="text-base md:text-lg text-gray-700 drop-shadow-sm">Địa chỉ</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-2 drop-shadow-sm">{result.address}</p>
+              <div className="flex items-center gap-3">
+                <CalendarClock className="h-10 w-10 text-emerald-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Lần ghi nhận gần nhất</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {latestRecord?.timestamp_human || "—"}
+                  </p>
+                </div>
               </div>
             </div>
           </Card>
 
-          <Card title="Lịch sử vi phạm" description={`Tổng ${result.violations.length} vi phạm`} className="py-2">
-            <div className="space-y-4">
-              {result.violations.map((violation) => (
-                <div
-                  key={violation.id}
-                  className="border border-white/30 rounded-xl p-5 md:p-6 hover:bg-white/10 transition-all backdrop-blur-sm"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-lg md:text-xl font-bold text-gray-900 drop-shadow-sm">Mã vi phạm: {violation.id}</p>
-                      <p className="text-base md:text-lg text-gray-700 mt-2 drop-shadow-sm">{violation.date}</p>
-                    </div>
-                    <Badge
-                      variant={
-                        violation.status === "paid"
-                          ? "default"
-                          : violation.status === "unpaid"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      className="gap-2 text-sm md:text-base px-3 py-1"
+          <Card
+            title="Chi tiết các lần vi phạm"
+            description="Dữ liệu được lấy trực tiếp từ API tìm kiếm"
+            className="py-2"
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm text-gray-900">
+                <thead>
+                  <tr className="text-left text-xs md:text-sm uppercase tracking-wider text-gray-500">
+                    <th className="py-3 pr-6">Thời gian</th>
+                    <th className="py-3 pr-6">Nồng độ cồn</th>
+                    <th className="py-3 pr-6">Thiết bị</th>
+                    <th className="py-3 pr-6">Cán bộ</th>
+                    <th className="py-3 pr-6">Mã cán bộ</th>
+                    <th className="py-3 pr-6">Nhịp tim</th>
+                    <th className="py-3 pr-6">SpO₂</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedResults.map((reading) => (
+                    <tr
+                      key={`${reading.cccd}-${reading.timestamp}-${reading.device_id}`}
+                      className="border-t border-gray-200 text-xs md:text-sm"
                     >
-                      {getStatusIcon(violation.status)}
-                      {getStatusText(violation.status)}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-base md:text-lg">
-                    <div>
-                      <p className="text-gray-700 drop-shadow-sm">Địa điểm</p>
-                      <p className="font-bold text-gray-900 mt-2 drop-shadow-sm">{violation.location}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-700 drop-shadow-sm">Nồng độ cồn</p>
-                      <p className="font-bold text-red-600 mt-2 drop-shadow-sm">{violation.alcoholLevel} mg/l</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-700 drop-shadow-sm">Số tiền phạt</p>
-                      <p className="font-bold text-gray-900 mt-2 drop-shadow-sm">
-                        {violation.fine.toLocaleString("vi-VN")} VNĐ
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      <td className="py-3 pr-6 font-medium">
+                        {reading.timestamp_human || reading.timestamp}
+                      </td>
+                      <td className="py-3 pr-6 text-red-600 font-semibold">
+                        {typeof reading.alcohol_level === "number"
+                          ? `${reading.alcohol_level.toFixed(3)} mg/l`
+                          : "—"}
+                      </td>
+                      <td className="py-3 pr-6">{reading.device_id}</td>
+                      <td className="py-3 pr-6">{reading.officer_name || "—"}</td>
+                      <td className="py-3 pr-6">{reading.officer_id}</td>
+                      <td className="py-3 pr-6">{reading.heart_rate}</td>
+                      <td className="py-3 pr-6">{reading.spo2}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>

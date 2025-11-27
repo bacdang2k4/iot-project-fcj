@@ -1,31 +1,200 @@
-import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useEffect, useMemo, useState } from "react";
+import type { TooltipProps } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import Card from "@/components/Card";
-import { fetchViolationStats } from "@/utils/api";
-import { ViolationStats } from "@/types";
+import {
+  aggregateReadingsByMonth,
+  fetchDashboardReadings,
+} from "@/utils/api";
+import { DashboardReading, ViolationStats } from "@/types";
 import { TrendingUp, AlertCircle, Users } from "lucide-react";
+
+const getReadingDate = (reading: DashboardReading): Date | null => {
+  if (Number.isFinite(reading.timestamp) && reading.timestamp > 0) {
+    return new Date(reading.timestamp * 1000);
+  }
+
+  if (reading.timestamp_human) {
+    const normalized = reading.timestamp_human.replace(" ", "T");
+    const parsed = new Date(`${normalized}Z`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState<ViolationStats[]>([]);
+  const [readings, setReadings] = useState<DashboardReading[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartMode, setChartMode] = useState<"month" | "year">("month");
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [severityYear, setSeverityYear] = useState<number | null>(null);
 
   useEffect(() => {
-    const loadStats = async () => {
+    const loadData = async () => {
       try {
-        const data = await fetchViolationStats();
-        setStats(data);
+        const data = await fetchDashboardReadings();
+        setReadings(data);
+        setStats(aggregateReadingsByMonth(data));
       } catch (error) {
-        console.error("Error loading stats:", error);
+        console.error("Error loading dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadStats();
+    loadData();
   }, []);
 
-  const totalViolations = stats.reduce((sum, item) => sum + item.violations, 0);
-  const avgViolations = Math.round(totalViolations / stats.length);
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(stats.map((item) => item.year)));
+    return years.sort((a, b) => b - a);
+  }, [stats]);
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    if (!severityYear && availableYears.length > 0) {
+      setSeverityYear(availableYears[0]);
+    }
+  }, [availableYears, severityYear]);
+
+  const totalViolations = readings.length;
+  const avgViolations =
+    stats.length > 0 ? Math.round(totalViolations / stats.length) : 0;
+  const uniqueOffenders = new Set(readings.map((item) => item.cccd)).size;
+  const severityDistribution = useMemo(() => {
+    if (!severityYear) {
+      return [];
+    }
+
+    const counts = { high: 0, medium: 0, low: 0 };
+    readings.forEach((reading) => {
+      const date = getReadingDate(reading);
+      if (!date || date.getFullYear() !== severityYear) {
+        return;
+      }
+
+      const level = reading.alcohol_level ?? 0;
+      if (level >= 0.8) {
+        counts.high += 1;
+      } else if (level >= 0.5) {
+        counts.medium += 1;
+      } else {
+        counts.low += 1;
+      }
+    });
+
+    const total = counts.high + counts.medium + counts.low;
+    if (total === 0) {
+      return [];
+    }
+
+    const toPercent = (value: number) =>
+      Math.round((value / total) * 100);
+
+    return [
+      {
+        key: "high",
+        label: "Rất cao > 0.8 mg/l",
+        subLabel: "Đã uống quá mức cho phép",
+        value: counts.high,
+        percent: toPercent(counts.high),
+        color: "#f87171",
+      },
+      {
+        key: "medium",
+        label: "Cao 0.5 - 0.8 mg/l",
+        subLabel: "Cần xử lý nghiêm",
+        value: counts.medium,
+        percent: toPercent(counts.medium),
+        color: "#fbbf24",
+      },
+      {
+        key: "low",
+        label: "Trung bình < 0.5 mg/l",
+        subLabel: "Trong ngưỡng bị xử phạt",
+        value: counts.low,
+        percent: toPercent(counts.low),
+        color: "#60a5fa",
+      },
+    ];
+  }, [readings, severityYear]);
+  const hasReadings = readings.length > 0;
+  const monthlyChartData = useMemo(() => {
+    if (!selectedYear) {
+      return [];
+    }
+
+    const template = Array.from({ length: 12 }, (_, index) => ({
+      monthIndex: index,
+      label: `Tháng ${index + 1}`,
+      year: selectedYear,
+      violations: 0,
+    }));
+
+    stats
+      .filter((item) => item.year === selectedYear)
+      .forEach((item) => {
+        const monthNumber = parseInt(item.month.replace("Tháng ", ""), 10) - 1;
+        if (monthNumber >= 0 && monthNumber < 12) {
+          template[monthNumber].violations = item.violations;
+        }
+      });
+
+    return template;
+  }, [stats, selectedYear]);
+
+  const yearlyChartData = useMemo(() => {
+    const yearMap = new Map<number, number>();
+    readings.forEach((reading) => {
+      const date = getReadingDate(reading);
+      if (!date) {
+        return;
+      }
+      const year = date.getFullYear();
+      yearMap.set(year, (yearMap.get(year) ?? 0) + 1);
+    });
+
+    return Array.from(yearMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([year, violations]) => ({
+        label: `Năm ${year}`,
+        year,
+        violations,
+      }));
+  }, [readings]);
+
+  const chartData = chartMode === "month" ? monthlyChartData : yearlyChartData;
+  const hasChartData = chartData.length > 0;
+
+  const severityTooltipFormatter: TooltipProps<
+    number,
+    string
+  >["formatter"] = (value, _name, payload) => {
+    const percent = payload?.payload?.percent ?? 0;
+    const label = payload?.payload?.label ?? "";
+    return [`${value} trường hợp (${percent}%)`, label];
+  };
 
   return (
     <>
@@ -71,7 +240,7 @@ const Dashboard = () => {
             <div className="flex-1">
               <p className="text-base md:text-lg font-semibold text-gray-700 drop-shadow-sm">Tổng vi phạm</p>
               <p className="text-4xl md:text-5xl font-bold text-gray-900 mt-3 drop-shadow-md">{totalViolations}</p>
-              <p className="text-sm md:text-base text-gray-600 mt-2 drop-shadow-sm">Năm 2024</p>
+              <p className="text-sm md:text-base text-gray-600 mt-2 drop-shadow-sm">Số bản ghi từ API</p>
             </div>
             <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-red-500/20 backdrop-blur-sm flex items-center justify-center border border-red-300/30 ml-4">
               <AlertCircle className="h-8 w-8 md:h-10 md:w-10 text-red-600 drop-shadow-lg" />
@@ -84,7 +253,7 @@ const Dashboard = () => {
             <div className="flex-1">
               <p className="text-base md:text-lg font-semibold text-gray-700 drop-shadow-sm">Trung bình/tháng</p>
               <p className="text-4xl md:text-5xl font-bold text-gray-900 mt-3 drop-shadow-md">{avgViolations}</p>
-              <p className="text-sm md:text-base text-green-600 mt-2 drop-shadow-sm font-medium">↓ 12% so với năm trước</p>
+              <p className="text-sm md:text-base text-gray-600 mt-2 drop-shadow-sm font-medium">Từ dữ liệu thực</p>
             </div>
             <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-blue-300/30 ml-4">
               <TrendingUp className="h-8 w-8 md:h-10 md:w-10 text-blue-600 drop-shadow-lg" />
@@ -95,9 +264,9 @@ const Dashboard = () => {
         <Card className="p-2">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-base md:text-lg font-semibold text-gray-700 drop-shadow-sm">Người vi phạm</p>
-              <p className="text-4xl md:text-5xl font-bold text-gray-900 mt-3 drop-shadow-md">{totalViolations - 87}</p>
-              <p className="text-sm md:text-base text-gray-600 mt-2 drop-shadow-sm">Người duy nhất</p>
+              <p className="text-base md:text-lg font-semibold text-gray-700 drop-shadow-sm">Người vi phạm duy nhất</p>
+              <p className="text-4xl md:text-5xl font-bold text-gray-900 mt-3 drop-shadow-md">{uniqueOffenders}</p>
+              <p className="text-sm md:text-base text-gray-600 mt-2 drop-shadow-sm">Dựa trên CCCD</p>
             </div>
             <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl bg-yellow-500/20 backdrop-blur-sm flex items-center justify-center border border-yellow-300/30 ml-4">
               <Users className="h-8 w-8 md:h-10 md:w-10 text-yellow-600 drop-shadow-lg" />
@@ -106,17 +275,75 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Monthly Chart */}
-      <Card title="Thống kê theo tháng" description="Số lượng vi phạm theo từng tháng trong năm 2024" className="py-2">
+      {/* Chart */}
+      <Card
+        title="Biểu đồ vi phạm"
+        description={
+          chartMode === "month"
+            ? "Số lượng vi phạm theo từng tháng từ dữ liệu thực"
+            : "Số lượng vi phạm theo từng năm từ dữ liệu thực"
+        }
+        className="py-2"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-1 mb-6">
+          <div className="inline-flex rounded-full bg-white/10 border border-white/20 p-1 backdrop-blur-sm self-end md:self-auto">
+            <button
+              type="button"
+              onClick={() => setChartMode("month")}
+              className={`px-4 py-2 text-sm font-semibold rounded-full transition ${
+                chartMode === "month"
+                  ? "bg-white text-gray-900 shadow"
+                  : "text-white/70 hover:text-white"
+              }`}
+            >
+              Theo tháng
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode("year")}
+              className={`px-4 py-2 text-sm font-semibold rounded-full transition ${
+                chartMode === "year"
+                  ? "bg-white text-gray-900 shadow"
+                  : "text-white/70 hover:text-white"
+              }`}
+            >
+              Theo năm
+            </button>
+          </div>
+
+          {chartMode === "month" && availableYears.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label htmlFor="year-select" className="text-sm font-semibold text-gray-700">
+                Chọn năm
+              </label>
+              <select
+                id="year-select"
+                value={selectedYear ?? ""}
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                className="rounded-lg border border-white/30 bg-white/80 px-4 py-2 text-sm font-semibold text-gray-900 shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
         {loading ? (
           <div className="h-[450px] flex items-center justify-center">
             <p className="text-lg text-gray-600 drop-shadow-sm">Đang tải dữ liệu...</p>
           </div>
+        ) : !hasChartData ? (
+          <div className="h-[450px] flex items-center justify-center">
+            <p className="text-lg text-gray-600 drop-shadow-sm">Không có dữ liệu từ API</p>
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height={450}>
-            <BarChart data={stats}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.3)" />
-              <XAxis dataKey="month" stroke="rgba(0,0,0,0.6)" fontSize={14} />
+              <XAxis dataKey="label" stroke="rgba(0,0,0,0.6)" fontSize={14} />
               <YAxis stroke="rgba(0,0,0,0.6)" fontSize={14} />
               <Tooltip
                 contentStyle={{
@@ -134,40 +361,88 @@ const Dashboard = () => {
         )}
       </Card>
 
-      {/* Yearly Summary */}
-      <Card title="Phân tích năm 2024" description="Tổng quan về tình hình vi phạm" className="py-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h4 className="font-semibold text-base md:text-lg text-gray-700 mb-4 drop-shadow-sm">Mức độ nghiêm trọng</h4>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg text-gray-800 drop-shadow-sm">Rất cao (&gt;0.8 mg/l)</span>
-                <span className="text-lg md:text-xl font-bold text-red-600 drop-shadow-sm">23%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg text-gray-800 drop-shadow-sm">Cao (0.5-0.8 mg/l)</span>
-                <span className="text-lg md:text-xl font-bold text-yellow-600 drop-shadow-sm">35%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg text-gray-800 drop-shadow-sm">Trung bình (&lt;0.5 mg/l)</span>
-                <span className="text-lg md:text-xl font-bold text-blue-600 drop-shadow-sm">42%</span>
-              </div>
+
+      {/* Severity breakdown */}
+      <Card
+        title="Mức độ vi phạm"
+        description="Phân bổ theo ngưỡng nồng độ cồn"
+        className="py-2"
+      >
+        <div className="flex justify-end px-1 mb-4">
+          {availableYears.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label htmlFor="severity-year-select" className="text-sm font-semibold text-gray-700">
+                Chọn năm
+              </label>
+              <select
+                id="severity-year-select"
+                value={severityYear ?? ""}
+                onChange={(event) => setSeverityYear(Number(event.target.value))}
+                className="rounded-lg border border-white/30 bg-white/80 px-4 py-2 text-sm font-semibold text-gray-900 shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          <div>
-            <h4 className="font-semibold text-base md:text-lg text-gray-700 mb-4 drop-shadow-sm">Thời gian vi phạm</h4>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg text-gray-800 drop-shadow-sm">Cuối tuần</span>
-                <span className="text-lg md:text-xl font-bold text-gray-900 drop-shadow-sm">58%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg text-gray-800 drop-shadow-sm">Ngày thường</span>
-                <span className="text-lg md:text-xl font-bold text-gray-900 drop-shadow-sm">42%</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
+        {loading ? (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-lg text-gray-600 drop-shadow-sm">Đang tải dữ liệu...</p>
+          </div>
+        ) : !severityYear || severityDistribution.length === 0 ? (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-lg text-gray-600 drop-shadow-sm">Không có dữ liệu cho năm đã chọn</p>
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="w-full lg:w-2/3 h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={severityDistribution}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius={0}
+                    outerRadius={180}
+                    paddingAngle={2}
+                  >
+                    {severityDistribution.map((entry) => (
+                      <Cell key={entry.key} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={severityTooltipFormatter} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-4">
+              {severityDistribution.map((entry) => (
+                <div
+                  key={entry.key}
+                  className="rounded-2xl border border-white/30 bg-white/40 p-4 backdrop-blur"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700">{entry.label}</p>
+                      <p className="text-xs text-gray-500 mt-1">{entry.subLabel}</p>
+                    </div>
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: entry.color }}
+                    ></span>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <p className="text-3xl font-bold text-gray-900">{entry.percent}%</p>
+                    <p className="text-sm text-gray-600">{entry.value} trường hợp</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
       </div>
     </>

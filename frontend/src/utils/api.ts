@@ -1,102 +1,134 @@
-import { CitizenInfo, ViolationStats, BlogPost } from "@/types";
+import { ViolationStats, DashboardReading } from "@/types";
 
-// Mock data for demonstration
+const DASHBOARD_API_URL =
+  "https://qplgmgegck.execute-api.ap-southeast-1.amazonaws.com/dashboard";
+
+const toDate = (reading: DashboardReading): Date | null => {
+  if (Number.isFinite(reading.timestamp) && reading.timestamp > 0) {
+    return new Date(reading.timestamp * 1000);
+  }
+
+  if (reading.timestamp_human) {
+    const normalized = reading.timestamp_human.replace(" ", "T");
+    const parsed = new Date(`${normalized}Z`);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
+export const aggregateReadingsByMonth = (
+  readings: DashboardReading[]
+): ViolationStats[] => {
+  const monthlyMap = new Map<string, ViolationStats>();
+
+  readings.forEach((reading) => {
+    const date = toDate(reading);
+    if (!date) {
+      return;
+    }
+
+    const monthIndex = date.getMonth();
+    const year = date.getFullYear();
+    const id = `${year}-${monthIndex}`;
+    const label = `Tháng ${monthIndex + 1}`;
+
+    const current = monthlyMap.get(id);
+    if (current) {
+      current.violations += 1;
+    } else {
+      monthlyMap.set(id, {
+        month: label,
+        violations: 1,
+        year,
+      });
+    }
+  });
+
+  return Array.from(monthlyMap.values()).sort((a, b) => {
+    if (a.year === b.year) {
+      return (
+        parseInt(a.month.replace("Tháng ", ""), 10) -
+        parseInt(b.month.replace("Tháng ", ""), 10)
+      );
+    }
+    return a.year - b.year;
+  });
+};
+
+const parseDashboardPayload = (payload: unknown): DashboardReading[] => {
+  if (!Array.isArray(payload)) {
+    console.error("Dashboard payload is not an array");
+    return [];
+  }
+
+  return payload.filter(
+    (item): item is DashboardReading =>
+      typeof item === "object" &&
+      item !== null &&
+      "timestamp" in item &&
+      "timestamp_human" in item &&
+      "officer_id" in item &&
+      "device_id" in item &&
+      "alcohol_level" in item &&
+      "cccd" in item &&
+      "spo2" in item &&
+      "heart_rate" in item
+  );
+};
+
+export const fetchDashboardReadings = async (): Promise<DashboardReading[]> => {
+  try {
+    const response = await fetch(DASHBOARD_API_URL);
+
+    if (!response.ok) {
+      throw new Error(`Dashboard API error: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as unknown;
+
+    return parseDashboardPayload(payload);
+  } catch (error) {
+    console.error("Failed to fetch dashboard data", error);
+    return [];
+  }
+};
+
+// Fetch real dashboard data grouped by month
 export const fetchViolationStats = async (): Promise<ViolationStats[]> => {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        { month: "Tháng 1", violations: 45, year: 2024 },
-        { month: "Tháng 2", violations: 52, year: 2024 },
-        { month: "Tháng 3", violations: 38, year: 2024 },
-        { month: "Tháng 4", violations: 61, year: 2024 },
-        { month: "Tháng 5", violations: 48, year: 2024 },
-        { month: "Tháng 6", violations: 55, year: 2024 },
-        { month: "Tháng 7", violations: 70, year: 2024 },
-        { month: "Tháng 8", violations: 63, year: 2024 },
-        { month: "Tháng 9", violations: 58, year: 2024 },
-        { month: "Tháng 10", violations: 67, year: 2024 },
-        { month: "Tháng 11", violations: 72, year: 2024 },
-        { month: "Tháng 12", violations: 80, year: 2024 },
-      ]);
-    }, 500);
-  });
+  try {
+    const readings = await fetchDashboardReadings();
+    return aggregateReadingsByMonth(readings);
+  } catch (error) {
+    console.error("Failed to aggregate dashboard data", error);
+    return [];
+  }
 };
 
-export const searchByCCCD = async (cccd: string): Promise<CitizenInfo | null> => {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (cccd === "001234567890") {
-        resolve({
-          cccd: "001234567890",
-          name: "Nguyễn Văn A",
-          birthDate: "15/03/1985",
-          address: "123 Đường Lê Lợi, Quận 1, TP.HCM",
-          violations: [
-            {
-              id: "V001",
-              date: "15/11/2024",
-              location: "Đường Nguyễn Huệ, Quận 1",
-              alcoholLevel: 0.45,
-              fine: 8000000,
-              status: "unpaid",
-            },
-            {
-              id: "V002",
-              date: "03/08/2024",
-              location: "Xa lộ Hà Nội, Quận 9",
-              alcoholLevel: 0.32,
-              fine: 7000000,
-              status: "paid",
-            },
-          ],
-        });
-      } else {
-        resolve(null);
-      }
-    }, 800);
-  });
+const SEARCH_API_URL =
+  "https://qplgmgegck.execute-api.ap-southeast-1.amazonaws.com/search?cccd=";
+
+export const searchByCCCD = async (
+  cccd: string
+): Promise<DashboardReading[]> => {
+  if (!cccd) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${SEARCH_API_URL}${encodeURIComponent(cccd)}`);
+
+    if (!response.ok) {
+      throw new Error(`Search API error: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as unknown;
+    return parseDashboardPayload(payload);
+  } catch (error) {
+    console.error("Failed to fetch search data", error);
+    return [];
+  }
 };
 
-export const fetchBlogPosts = async (): Promise<BlogPost[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          id: "1",
-          title: "Quy định mới về xử phạt vi phạm nồng độ cồn năm 2024",
-          excerpt: "Chính phủ vừa ban hành nghị định mới với mức xử phạt nghiêm khắc hơn đối với người điều khiển phương tiện có nồng độ cồn...",
-          content: "",
-          author: "Ban Biên Tập",
-          publishDate: "20/11/2024",
-          category: "Chính sách",
-          imageUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
-          readTime: "5 phút",
-        },
-        {
-          id: "2",
-          title: "Tác hại của việc lái xe sau khi uống rượu bia",
-          excerpt: "Rượu bia làm giảm khả năng phản xạ, nhận thức và khả năng xử lý tình huống của người lái xe, gây nguy hiểm cho bản thân và người khác...",
-          content: "",
-          author: "TS. Trần Văn B",
-          publishDate: "18/11/2024",
-          category: "Sức khỏe",
-          imageUrl: "https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=800",
-          readTime: "7 phút",
-        },
-        {
-          id: "3",
-          title: "Thống kê tai nạn giao thông do rượu bia 6 tháng đầu năm",
-          excerpt: "Trong 6 tháng đầu năm 2024, cả nước ghi nhận 1.234 vụ tai nạn giao thông liên quan đến nồng độ cồn, làm 456 người tử vong...",
-          content: "",
-          author: "Cục CSGT",
-          publishDate: "15/11/2024",
-          category: "Thống kê",
-          imageUrl: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800",
-          readTime: "4 phút",
-        },
-      ]);
-    }, 500);
-  });
-};

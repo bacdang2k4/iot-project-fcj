@@ -4,9 +4,16 @@ import { BlogPost } from "@/types";
 const RSS_FEEDS = {
   vnexpress: "https://vnexpress.net/rss/phap-luat.rss",
   tuoitre: "https://tuoitre.vn/rss/phap-luat.rss",
-  thanhnien: "https://thanhnien.vn/rss/thoi-su/phap-luat.rss",
-  dantri: "https://dantri.com.vn/phap-luat.rss",
 };
+
+const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const FEED_TIMEOUT_MS = 2000; // Reduced from 6000ms
+const MAX_ITEMS_PER_FEED = 3; // Reduced from 8
+
+let cachedNews: {
+  data: BlogPost[];
+  timestamp: number;
+} | null = null;
 
 // Keywords to filter traffic accident news related to alcohol
 const KEYWORDS = [
@@ -36,6 +43,21 @@ const KEYWORDS = [
 
 // CORS proxy to fetch RSS feeds (you can use your own proxy)
 const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
+const fetchWithTimeout = async (
+  url: string,
+  timeout: number
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
 
 interface RSSItem {
   title: string;
@@ -122,30 +144,41 @@ const calculateReadTime = (text: string): string => {
 };
 
 // Fetch news from a single RSS feed
-const fetchFromFeed = async (feedUrl: string, source: string): Promise<BlogPost[]> => {
+const fetchFromFeed = async (
+  feedUrl: string,
+  source: string
+): Promise<BlogPost[]> => {
   try {
-    const response = await fetch(CORS_PROXY + encodeURIComponent(feedUrl));
+    const response = await fetchWithTimeout(
+      CORS_PROXY + encodeURIComponent(feedUrl),
+      FEED_TIMEOUT_MS
+    );
     const xmlText = await response.text();
     const items = parseRSS(xmlText);
-    
+
     // Filter items that match keywords
-    const filtered = items.filter(item => 
+    const filtered = items.filter((item) =>
       matchesKeywords(item.title, item.description)
     );
-    
+
     // Convert to BlogPost format
-    return filtered.map((item, index) => ({
-      id: `${source}-${index}-${Date.now()}`,
-      title: item.title,
-      excerpt: stripHtml(item.description).substring(0, 200) + "...",
-      content: stripHtml(item.description),
-      author: source.charAt(0).toUpperCase() + source.slice(1),
-      publishDate: formatDate(item.pubDate),
-      category: item.category || "Pháp luật",
-      imageUrl: item.image || `https://images.unsplash.com/photo-${1589829545856 + index}?w=800&h=400&fit=crop`,
-      readTime: calculateReadTime(stripHtml(item.description)),
-      externalLink: item.link,
-    }));
+    return filtered.slice(0, MAX_ITEMS_PER_FEED).map((item, index) => {
+      const plainDescription = stripHtml(item.description);
+      return {
+        id: `${source}-${index}-${Date.now()}`,
+        title: item.title,
+        excerpt: plainDescription.substring(0, 200) + "...",
+        content: plainDescription,
+        author: source.charAt(0).toUpperCase() + source.slice(1),
+        publishDate: formatDate(item.pubDate),
+        category: item.category || "Pháp luật",
+        imageUrl:
+          item.image ||
+          `https://images.unsplash.com/photo-${1589829545856 + index}?w=800&h=400&fit=crop`,
+        readTime: calculateReadTime(plainDescription),
+        externalLink: item.link,
+      };
+    });
   } catch (error) {
     console.error(`Error fetching from ${source}:`, error);
     return [];
@@ -154,14 +187,21 @@ const fetchFromFeed = async (feedUrl: string, source: string): Promise<BlogPost[
 
 // Fetch news from all sources
 export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
+  const now = Date.now();
+  if (cachedNews && now - cachedNews.timestamp < CACHE_DURATION_MS) {
+    return cachedNews.data;
+  }
+
   try {
     const fetchPromises = Object.entries(RSS_FEEDS).map(([source, url]) =>
       fetchFromFeed(url, source)
     );
-    
-    const results = await Promise.all(fetchPromises);
-    const allNews = results.flat();
-    
+
+    const results = await Promise.allSettled(fetchPromises);
+    const allNews = results
+      .filter((result): result is PromiseFulfilledResult<BlogPost[]> => result.status === "fulfilled")
+      .flatMap((result) => result.value);
+
     // Sort by date (newest first) - prioritize recent news
     allNews.sort((a, b) => {
       try {
@@ -190,71 +230,15 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
     );
     
     // Return top 20 most recent news items
-    return uniqueNews.slice(0, 20);
+    const topNews = uniqueNews.slice(0, 20);
+    cachedNews = {
+      data: topNews,
+      timestamp: now,
+    };
+    return topNews;
   } catch (error) {
     console.error("Error fetching traffic news:", error);
-    // Return mock data as fallback
-    return getMockNews();
+    cachedNews = null;
+    return [];
   }
-};
-
-// Mock data as fallback
-const getMockNews = (): BlogPost[] => {
-  return [
-    {
-      id: "1",
-      title: "Quy định mới về xử phạt vi phạm nồng độ cồn năm 2024",
-      excerpt: "Chính phủ vừa ban hành nghị định mới với mức xử phạt nghiêm khắc hơn đối với người điều khiển phương tiện có nồng độ cồn. Mức phạt tối đa có thể lên tới 40 triệu đồng và tước giấy phép lái xe 24 tháng...",
-      content: "",
-      author: "VnExpress",
-      publishDate: "20/11/2024",
-      category: "Pháp luật",
-      imageUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
-      readTime: "5 phút",
-    },
-    {
-      id: "2",
-      title: "Tai nạn giao thông nghiêm trọng do lái xe sau khi uống rượu tại TP.HCM",
-      excerpt: "Một vụ tai nạn giao thông nghiêm trọng xảy ra tại quận 1, TP.HCM do tài xế điều khiển xe ô tô trong tình trạng say rượu, gây thiệt hại về người và tài sản. CSGT đã tiến hành đo nồng độ cồn và xử lý theo quy định...",
-      content: "",
-      author: "Tuổi Trẻ",
-      publishDate: "19/11/2024",
-      category: "Pháp luật",
-      imageUrl: "https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=800",
-      readTime: "6 phút",
-    },
-    {
-      id: "3",
-      title: "CSGT tăng cường kiểm tra nồng độ cồn dịp cuối năm",
-      excerpt: "Lực lượng CSGT toàn quốc đã triển khai kế hoạch tăng cường kiểm tra, xử lý vi phạm nồng độ cồn trong dịp lễ tết cuối năm. Nhiều chốt kiểm soát được lập tại các tuyến đường trọng điểm...",
-      content: "",
-      author: "Thanh Niên",
-      publishDate: "18/11/2024",
-      category: "Pháp luật",
-      imageUrl: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800",
-      readTime: "4 phút",
-    },
-    {
-      id: "4",
-      title: "Thống kê: 70% tai nạn giao thông nghiêm trọng liên quan đến rượu bia",
-      excerpt: "Theo báo cáo của Ủy ban An toàn Giao thông Quốc gia, 70% các vụ tai nạn giao thông nghiêm trọng có liên quan đến việc người điều khiển phương tiện sử dụng rượu bia. Con số này cho thấy tình trạng đáng báo động...",
-      content: "",
-      author: "Dân Trí",
-      publishDate: "17/11/2024",
-      category: "Thống kê",
-      imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800",
-      readTime: "7 phút",
-    },
-    {
-      id: "5",
-      title: "Tác hại của việc lái xe sau khi uống rượu bia",
-      excerpt: "Rượu bia làm giảm khả năng phản xạ, nhận thức và khả năng xử lý tình huống của người lái xe. Ngay cả với lượng nhỏ, nồng độ cồn cũng có thể ảnh hưởng nghiêm trọng đến khả năng điều khiển phương tiện...",
-      content: "",
-      author: "VnExpress",
-      publishDate: "16/11/2024",
-      category: "Sức khỏe",
-      imageUrl: "https://images.unsplash.com/photo-1532634733-cae1395e440f?w=800",
-      readTime: "8 phút",
-    },
-  ];
 };
