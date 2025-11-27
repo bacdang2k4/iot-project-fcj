@@ -25,9 +25,9 @@ resource "aws_apigatewayv2_stage" "stage" {
 
 # 2. Route Dashboard (Cũ)
 resource "aws_apigatewayv2_integration" "dashboard" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.dashboard_lambda_arn
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = var.dashboard_lambda_arn
   payload_format_version = "2.0"
 }
 
@@ -47,9 +47,9 @@ resource "aws_lambda_permission" "api_dashboard" {
 
 # 3. Route Search (MỚI)
 resource "aws_apigatewayv2_integration" "search" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.search_lambda_arn # Dùng biến mới
+  api_id                 = aws_apigatewayv2_api.main.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = var.search_lambda_arn # Dùng biến mới
   payload_format_version = "2.0"
 }
 
@@ -68,3 +68,6 @@ resource "aws_lambda_permission" "api_search" {
 }
 
 output "api_endpoint" { value = aws_apigatewayv2_api.main.api_endpoint }
+output "stage_arn" {
+  value = aws_apigatewayv2_stage.stage.arn
+}
