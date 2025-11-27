@@ -38,8 +38,13 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
+        env:
+          # Terraform tự động map biến TF_VAR_ten_bien -> variable "ten_bien"
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }} 
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/master' # Chỉ apply khi merge vào master
+        if: github.ref == 'refs/heads/master'
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }} 
         run: terraform apply -auto-approve tfplan

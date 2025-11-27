@@ -1,4 +1,6 @@
-# --- 1. Terraform ---
+# ========================
+# 1. Terraform (Hạ tầng)
+# ========================
 **/.terraform/*
 *.tfstate
 *.tfstate.*
@@ -11,35 +13,53 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# --- 2. Java / Maven (Backend) ---
-target/
-*.jar
-*.war
-*.ear
-*.class
-.mvn/
-mvnw
-mvnw.cmd
+# ========================
+# 2. Python (Backend mới) - QUAN TRỌNG
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+# Virtual Environment
+venv/
+.venv/
+env/
+.env
 
-# --- 3. Firmware / ESP32 (Phần mới thêm) ---
-# Thư mục build của PlatformIO (Rất nặng, không được push)
+# ========================
+# 3. Frontend / NodeJS (React) - QUAN TRỌNG
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output (Vite tạo ra dist, CRA tạo ra build)
+dist/
+build/
+
+# Các file môi trường local của Frontend
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========================
+# 4. Firmware / ESP32
+# ========================
 .pio/
 .pioenvs/
-
-# File chứa Key nhạy cảm (TUYỆT ĐỐI QUAN TRỌNG)
 **/secrets.h
 **/wifi_creds.h
-
-# File biên dịch ra binary
 *.bin
 *.elf
 *.hex
-
-# File cấu hình C++ cho Neovim/Clangd (Nó chứa đường dẫn máy local của bạn)
 compile_commands.json
 .clang-format
 
-# --- 4. IDE / Editor ---
+# ========================
+# 5. IDE / OS Files
+# ========================
 .idea/
 *.iml
 .vscode/
@@ -47,3 +67,13 @@ compile_commands.json
 *.swo
 .DS_Store
 Thumbs.db
+
+# ========================
+# 6. Java / Maven (Backend cũ - Giữ lại phòng hờ hoặc xóa)
+# ========================
+target/
+*.jar
+*.class
+.mvn/
+mvnw
+mvnw.cmd

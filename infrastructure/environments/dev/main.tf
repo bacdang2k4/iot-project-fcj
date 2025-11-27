@@ -27,6 +27,10 @@ provider "aws" {
   }
 }
 
+variable "github_token" {
+  type      = string
+  sensitive = true
+}
 # ==============================================================================
 # 1. DATABASE MODULE
 # (Bây giờ nó sẽ tạo ra 2 bảng: Violations và Officers)
@@ -192,6 +196,23 @@ module "lambda_search" {
 }
 
 # ==============================================================================
+# 8. FRONTEND MODULE (AWS AMPLIFY)
+# ==============================================================================
+module "frontend" {
+  source = "../../modules/frontend"
+  environment = "dev"
+
+  # Điền đúng tên user/repo của bạn
+  github_repo = "bacdang2k4/iot-project-fcj"
+  
+  # Token lấy từ biến đầu vào
+  github_token = var.github_token
+  
+  # Lấy URL từ API Gateway truyền sang Frontend
+  api_url = module.api.api_url 
+}
+
+# ==============================================================================
 # OUTPUTS
 # ==============================================================================
 output "violation_table" {
@@ -208,4 +229,8 @@ output "dashboard_lambda_arn" {
 
 output "api_url" {
   value = module.api.api_endpoint
+}
+
+output "frontend_url" {
+  value = module.frontend.app_url
 }

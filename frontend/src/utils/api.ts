@@ -1,16 +1,21 @@
 import { ViolationStats, DashboardReading } from "@/types";
 
-const DASHBOARD_API_URL =
-  "https://qplgmgegck.execute-api.ap-southeast-1.amazonaws.com/dashboard";
+// SỬA 1: Lấy link từ biến môi trường (Do Amplify/Terraform bơm vào)
+// Nếu chạy local mà chưa có env thì fallback về chuỗi rỗng để tránh lỗi crash
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://qplgmgegck.execute-api.ap-southeast-1.amazonaws.com"; 
+
+const DASHBOARD_API_URL = `${API_BASE_URL}/dashboard`;
+const SEARCH_API_URL = `${API_BASE_URL}/search?cccd=`;
 
 const toDate = (reading: DashboardReading): Date | null => {
   if (Number.isFinite(reading.timestamp) && reading.timestamp > 0) {
-    return new Date(reading.timestamp * 1000);
+    // SỬA 2: Backend Python đã trả về Milliseconds rồi, KHÔNG nhân 1000 nữa
+    return new Date(reading.timestamp); 
   }
 
   if (reading.timestamp_human) {
     const normalized = reading.timestamp_human.replace(" ", "T");
-    const parsed = new Date(`${normalized}Z`);
+    const parsed = new Date(`${normalized}Z`); // Giả sử server trả về giờ UTC
     if (!isNaN(parsed.getTime())) {
       return parsed;
     }
@@ -69,18 +74,14 @@ const parseDashboardPayload = (payload: unknown): DashboardReading[] => {
       typeof item === "object" &&
       item !== null &&
       "timestamp" in item &&
-      "timestamp_human" in item &&
-      "officer_id" in item &&
-      "device_id" in item &&
-      "alcohol_level" in item &&
-      "cccd" in item &&
-      "spo2" in item &&
-      "heart_rate" in item
+      // Các trường khác có thể optional tùy logic, nhưng timestamp là bắt buộc để sort
+      "cccd" in item 
   );
 };
 
 export const fetchDashboardReadings = async (): Promise<DashboardReading[]> => {
   try {
+    console.log("Fetching from:", DASHBOARD_API_URL); // Log để debug xem link đúng chưa
     const response = await fetch(DASHBOARD_API_URL);
 
     if (!response.ok) {
@@ -88,7 +89,6 @@ export const fetchDashboardReadings = async (): Promise<DashboardReading[]> => {
     }
 
     const payload = (await response.json()) as unknown;
-
     return parseDashboardPayload(payload);
   } catch (error) {
     console.error("Failed to fetch dashboard data", error);
@@ -96,7 +96,6 @@ export const fetchDashboardReadings = async (): Promise<DashboardReading[]> => {
   }
 };
 
-// Fetch real dashboard data grouped by month
 export const fetchViolationStats = async (): Promise<ViolationStats[]> => {
   try {
     const readings = await fetchDashboardReadings();
@@ -107,9 +106,6 @@ export const fetchViolationStats = async (): Promise<ViolationStats[]> => {
   }
 };
 
-const SEARCH_API_URL =
-  "https://qplgmgegck.execute-api.ap-southeast-1.amazonaws.com/search?cccd=";
-
 export const searchByCCCD = async (
   cccd: string
 ): Promise<DashboardReading[]> => {
@@ -118,7 +114,10 @@ export const searchByCCCD = async (
   }
 
   try {
-    const response = await fetch(`${SEARCH_API_URL}${encodeURIComponent(cccd)}`);
+    const url = `${SEARCH_API_URL}${encodeURIComponent(cccd)}`;
+    console.log("Searching at:", url);
+    
+    const response = await fetch(url);
 
     if (!response.ok) {
       throw new Error(`Search API error: ${response.status}`);
@@ -131,4 +130,3 @@ export const searchByCCCD = async (
     return [];
   }
 };
-
