@@ -96,7 +96,9 @@ const Blogs = () => {
                 )}
               </div>
               <div className="flex flex-col justify-center">
-                <Badge className="w-fit mb-4 text-sm md:text-base px-3 py-1">{posts[0].category}</Badge>
+                <Badge className="w-fit rounded-full bg-blue-600 text-white text-xs md:text-sm px-4 py-1 mb-4 shadow-sm">
+                  {posts[0].category || "Giao thông"}
+                </Badge>
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 drop-shadow-md hover:text-blue-600 transition-colors">{posts[0].title}</h2>
                 <p className="text-base md:text-lg text-gray-800 mb-6 line-clamp-3 drop-shadow-sm">{posts[0].excerpt}</p>
                 <div className="flex flex-wrap gap-4 text-sm md:text-base text-gray-700">
@@ -120,7 +122,7 @@ const Blogs = () => {
       )}
 
       {/* Other Posts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-stretch">
         {posts.slice(1).map((post) => (
           <a
             key={post.id}
@@ -129,8 +131,8 @@ const Blogs = () => {
             rel="noopener noreferrer"
             className="block no-underline"
           >
-            <Card className="overflow-hidden hover:shadow-2xl transition-all cursor-pointer">
-              <div className="h-48 md:h-56 overflow-hidden rounded-t-lg relative bg-gray-200">
+            <Card className="flex h-full flex-col overflow-hidden hover:shadow-2xl transition-all cursor-pointer">
+              <div className="h-56 overflow-hidden rounded-t-lg relative bg-gray-200">
                 <img
                   src={post.imageUrl}
                   alt={post.title}
@@ -143,12 +145,16 @@ const Blogs = () => {
                   </div>
                 )}
               </div>
-              <div className="p-6">
-                <Badge className="mb-3 text-sm md:text-base px-3 py-1">{post.category}</Badge>
+              <div className="p-6 flex flex-col flex-1">
+                <Badge className="w-fit rounded-full bg-blue-600 text-white text-xs md:text-sm px-4 py-1 mb-3 shadow-sm">
+                  {post.category || "Giao thông"}
+                </Badge>
                 <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 line-clamp-2 drop-shadow-sm hover:text-blue-600 transition-colors">
                   {post.title}
                 </h3>
-                <p className="text-base md:text-lg text-gray-800 mb-4 line-clamp-2 drop-shadow-sm">{post.excerpt}</p>
+                <p className="text-base md:text-lg text-gray-800 mb-4 line-clamp-2 drop-shadow-sm flex-1">
+                  {post.excerpt}
+                </p>
                 <div className="flex flex-wrap gap-4 text-sm md:text-base text-gray-700">
                   <div className="flex items-center gap-1">
                     <User className="h-4 w-4" />

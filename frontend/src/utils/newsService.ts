@@ -1,14 +1,11 @@
 import { BlogPost } from "@/types";
 
-// RSS feed URLs from Vietnamese news sources
-const RSS_FEEDS = {
-  vnexpress: "https://vnexpress.net/rss/phap-luat.rss",
-  tuoitre: "https://tuoitre.vn/rss/phap-luat.rss",
-};
+const TRAFFIC_NEWS_FEED_URL = "https://iot2.namisme2k7.workers.dev/";
 
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const FEED_TIMEOUT_MS = 12000; // Reduced from 6000ms
-const MAX_ITEMS_PER_FEED = 200; // Reduced from 8
+const FEED_TIMEOUT_MS = 6000;
+const MAX_ITEMS = 200;
+const BLOG_ITEMS_LIMIT = 3;
 
 let cachedNews: {
   data: BlogPost[];
@@ -40,9 +37,6 @@ const KEYWORDS = [
   "giấy phép lái xe",
   "kiểm tra nồng độ cồn",
 ];
-
-// CORS proxy to fetch RSS feeds (you can use your own proxy)
-const CORS_PROXY = "https://api.allorigins.win/raw?url=";
 
 const fetchWithTimeout = async (
   url: string,
@@ -143,49 +137,6 @@ const calculateReadTime = (text: string): string => {
   return `${minutes} phút`;
 };
 
-// Fetch news from a single RSS feed
-const fetchFromFeed = async (
-  feedUrl: string,
-  source: string
-): Promise<BlogPost[]> => {
-  try {
-    const response = await fetchWithTimeout(
-      CORS_PROXY + encodeURIComponent(feedUrl),
-      FEED_TIMEOUT_MS
-    );
-    const xmlText = await response.text();
-    const items = parseRSS(xmlText);
-
-    // Filter items that match keywords
-    const filtered = items.filter((item) =>
-      matchesKeywords(item.title, item.description)
-    );
-
-    // Convert to BlogPost format
-    return filtered.slice(0, MAX_ITEMS_PER_FEED).map((item, index) => {
-      const plainDescription = stripHtml(item.description);
-      return {
-        id: `${source}-${index}-${Date.now()}`,
-        title: item.title,
-        excerpt: plainDescription.substring(0, 200) + "...",
-        content: plainDescription,
-        author: source.charAt(0).toUpperCase() + source.slice(1),
-        publishDate: formatDate(item.pubDate),
-        category: item.category || "Pháp luật",
-        imageUrl:
-          item.image ||
-          `https://images.unsplash.com/photo-${1589829545856 + index}?w=800&h=400&fit=crop`,
-        readTime: calculateReadTime(plainDescription),
-        externalLink: item.link,
-      };
-    });
-  } catch (error) {
-    console.error(`Error fetching from ${source}:`, error);
-    return [];
-  }
-};
-
-// Fetch news from all sources
 export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
   const now = Date.now();
   if (cachedNews && now - cachedNews.timestamp < CACHE_DURATION_MS) {
@@ -193,14 +144,44 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
   }
 
   try {
-    const fetchPromises = Object.entries(RSS_FEEDS).map(([source, url]) =>
-      fetchFromFeed(url, source)
+    const response = await fetchWithTimeout(
+      TRAFFIC_NEWS_FEED_URL,
+      FEED_TIMEOUT_MS
     );
 
-    const results = await Promise.allSettled(fetchPromises);
-    const allNews = results
-      .filter((result): result is PromiseFulfilledResult<BlogPost[]> => result.status === "fulfilled")
-      .flatMap((result) => result.value);
+    if (!response.ok) {
+      throw new Error(`Traffic feed error: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    const items = parseRSS(xmlText);
+
+    const filtered = items.filter((item) =>
+      matchesKeywords(item.title, item.description)
+    );
+
+    const sourceItems =
+      filtered.length >= BLOG_ITEMS_LIMIT
+        ? filtered
+        : items.slice(0, MAX_ITEMS);
+
+    const allNews = sourceItems.map((item, index) => {
+      const plainDescription = stripHtml(item.description);
+      return {
+        id: `traffic-${index}-${Date.now()}`,
+        title: item.title,
+        excerpt: plainDescription.substring(0, 200) + "...",
+        content: plainDescription,
+        author: "VnExpress",
+        publishDate: formatDate(item.pubDate),
+        category: item.category || "Giao thông",
+        imageUrl:
+          item.image ||
+          `https://images.unsplash.com/photo-${1589829545856 + index}?w=800&h=400&fit=crop`,
+        readTime: calculateReadTime(plainDescription),
+        externalLink: item.link,
+      };
+    });
 
     // Sort by date (newest first) - prioritize recent news
     allNews.sort((a, b) => {
@@ -229,8 +210,7 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
       )
     );
     
-    // Return top 20 most recent news items
-    const topNews = uniqueNews.slice(0, 3);
+    const topNews = uniqueNews.slice(0, BLOG_ITEMS_LIMIT);
     cachedNews = {
       data: topNews,
       timestamp: now,
