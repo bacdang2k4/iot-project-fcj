@@ -4,11 +4,13 @@ import { BlogPost } from "@/types";
 const RSS_FEEDS = {
   vnexpress: "https://vnexpress.net/rss/phap-luat.rss",
   tuoitre: "https://tuoitre.vn/rss/phap-luat.rss",
+  thanhnien: "https://thanhnien.vn/rss/thoi-su/phap-luat.rss",
 };
 
-const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const FEED_TIMEOUT_MS = 2000; // Reduced from 6000ms
-const MAX_ITEMS_PER_FEED = 3; // Reduced from 8
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache
+const FEED_TIMEOUT_MS = 6000; // 6 seconds timeout
+const MAX_ITEMS_PER_FEED = 3; // Fewer items per feed
+const MAX_TOTAL_NEWS = 3; // Max 8 news items total
 
 let cachedNews: {
   data: BlogPost[];
@@ -229,8 +231,8 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
       )
     );
     
-    // Return top 20 most recent news items
-    const topNews = uniqueNews.slice(0, 20);
+    // Return top items only
+    const topNews = uniqueNews.slice(0, MAX_TOTAL_NEWS);
     cachedNews = {
       data: topNews,
       timestamp: now,
