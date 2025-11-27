@@ -31,4 +31,5 @@ export interface BlogPost {
   category: string;
   imageUrl: string;
   readTime: string;
+  externalLink?: string;
 }

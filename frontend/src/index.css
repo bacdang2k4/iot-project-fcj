@@ -115,3 +115,13 @@ All colors MUST be HSL.
     background-attachment: fixed;
   }
 }
+
+@layer utilities {
+  .glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20;
+  }
+  
+  .glass-hover {
+    @apply transition-all duration-300 hover:bg-white/15 hover:shadow-2xl hover:border-white/30;
+  }
+}
