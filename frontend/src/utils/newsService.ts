@@ -7,8 +7,8 @@ const RSS_FEEDS = {
 };
 
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const FEED_TIMEOUT_MS = 12000; // Reduced from 6000ms
-const MAX_ITEMS_PER_FEED = 200; // Reduced from 8
+const FEED_TIMEOUT_MS = 6000; // Reduced from 6000ms
+const MAX_ITEMS_PER_FEED = 100; // Reduced from 8
 
 let cachedNews: {
   data: BlogPost[];
@@ -128,6 +128,35 @@ const formatDate = (dateString: string): string => {
   }
 };
 
+// Parse date string in DD/MM/YYYY format to Date object
+const parseVietnamDate = (dateStr: string): Date => {
+  try {
+    const parts = dateStr.split("/");
+    if (parts.length === 3) {
+      return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    }
+    return new Date(dateStr);
+  } catch {
+    return new Date(0);
+  }
+};
+
+// Check if news is within 4 days from today
+const isWithinFourDays = (publishDate: string): boolean => {
+  try {
+    const newsDate = parseVietnamDate(publishDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const fourDaysAgo = new Date(today);
+    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4);
+    
+    return newsDate >= fourDaysAgo && newsDate <= today;
+  } catch {
+    return false;
+  }
+};
+
 // Strip HTML tags from description
 const stripHtml = (html: string): string => {
   const tmp = document.createElement("div");
@@ -229,8 +258,22 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
       )
     );
     
-    // Return top 20 most recent news items
-    const topNews = uniqueNews.slice(0, 3);
+    // Get top 3 most recent news items
+    let topNews = uniqueNews.slice(0, 3);
+    
+    // If we don't have enough news from today/recently, get news from within 4 days
+    if (topNews.length < 3) {
+      const newsWithinFourDays = uniqueNews.filter(news => 
+        isWithinFourDays(news.publishDate)
+      );
+      topNews = newsWithinFourDays.slice(0, 3);
+    }
+    
+    // If still no news, return what we have (up to 3 items)
+    if (topNews.length === 0) {
+      topNews = uniqueNews.slice(0, 3);
+    }
+    
     cachedNews = {
       data: topNews,
       timestamp: now,
