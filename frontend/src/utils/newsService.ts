@@ -7,8 +7,8 @@ const RSS_FEEDS = {
 };
 
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
-const FEED_TIMEOUT_MS = 2000; // Reduced from 6000ms
-const MAX_ITEMS_PER_FEED = 3; // Reduced from 8
+const FEED_TIMEOUT_MS = 6000; // 6 seconds
+const MAX_ITEMS_PER_FEED = 5; // 3 items per feed
 
 let cachedNews: {
   data: BlogPost[];
@@ -229,7 +229,7 @@ export const fetchTrafficNews = async (): Promise<BlogPost[]> => {
       )
     );
     
-    // Return top 20 most recent news items
+    // Return top 3 most recent news items
     const topNews = uniqueNews.slice(0, 20);
     cachedNews = {
       data: topNews,
