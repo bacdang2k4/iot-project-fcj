@@ -185,7 +185,7 @@ module "lambda_search" {
       Effect   = "Allow",
       Resource = [
         module.database.violations_table_arn,
-        "${module.database.violations_table_arn}/index/*" # Cho phép query vào Index phụ
+        "${module.database.violations_table_arn}/index/*" # <--- QUAN TRỌNG: Cho phép đọc Index
       ]
     }]
   })

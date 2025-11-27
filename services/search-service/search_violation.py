@@ -34,6 +34,7 @@ def lambda_handler(event, context):
         # 2. QUERY vào bảng DynamoDB (Dùng Index CCCDIndex)
         # IndexName='CCCDIndex' phải khớp với tên trong Terraform database
         response = table.query(
+            IndexName='CCCDIndex', # <--- PHẢI CÓ DÒNG NÀY VÌ CCCD LÀ INDEX
             KeyConditionExpression=Key('cccd').eq(cccd_number)
         )
         
