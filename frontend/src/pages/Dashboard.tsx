@@ -21,24 +21,35 @@ import {
 import { DashboardReading, ViolationStats } from "@/types";
 import { TrendingUp, AlertCircle, Users } from "lucide-react";
 
-// --- SỬA LỖI Ở ĐÂY ---
+// --- HÀM XỬ LÝ NGÀY THÁNG (ĐÃ SỬA LỖI 1970) ---
 const getReadingDate = (reading: DashboardReading): Date | null => {
-  if (Number.isFinite(reading.timestamp) && reading.timestamp > 0) {
-    // Backend Python trả về Milliseconds, nên KHÔNG nhân 1000 nữa
-    return new Date(reading.timestamp); 
-  }
+  let ts = reading.timestamp;
 
-  if (reading.timestamp_human) {
-    const normalized = reading.timestamp_human.replace(" ", "T");
-    const parsed = new Date(`${normalized}Z`);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
+  // Kiểm tra tính hợp lệ cơ bản
+  if (!Number.isFinite(ts) || ts <= 0) {
+    // Fallback: Thử parse từ chuỗi timestamp_human nếu timestamp số bị lỗi
+    if (reading.timestamp_human) {
+      const normalized = reading.timestamp_human.replace(" ", "T");
+      const parsed = new Date(`${normalized}Z`);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
     }
+    return null;
   }
 
-  return null;
+  // --- LOGIC TỰ ĐỘNG PHÁT HIỆN ---
+  // Nếu timestamp nhỏ hơn 100 tỷ (tương đương năm 1973), 
+  // chắc chắn server đang trả về GIÂY (Seconds).
+  // Javascript cần Mili-giây, nên ta nhân 1000.
+  if (ts < 100000000000) {
+    ts *= 1000;
+  }
+  // Ngược lại, nếu lớn hơn thì nó đã là Mili-giây rồi, giữ nguyên.
+
+  return new Date(ts);
 };
-// --------------------
+// ------------------------------------------------
 
 const Dashboard = () => {
   const [stats, setStats] = useState<ViolationStats[]>([]);
@@ -53,7 +64,9 @@ const Dashboard = () => {
       try {
         const data = await fetchDashboardReadings();
         setReadings(data);
-        // aggregateReadingsByMonth trong api.ts cũng cần đảm bảo logic ngày tháng đúng
+        
+        // Cần đảm bảo hàm aggregateReadingsByMonth bên api.ts cũng dùng logic date tương tự
+        // Nhưng tạm thời ta dùng dữ liệu raw để tính toán lại trong component này nếu cần
         setStats(aggregateReadingsByMonth(data)); 
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -66,9 +79,14 @@ const Dashboard = () => {
   }, []);
 
   const availableYears = useMemo(() => {
-    const years = Array.from(new Set(stats.map((item) => item.year)));
-    return years.sort((a, b) => b - a);
-  }, [stats]);
+    // Tái tạo lại danh sách năm từ readings để đảm bảo logic getReadingDate được áp dụng
+    const years = new Set<number>();
+    readings.forEach(r => {
+        const d = getReadingDate(r);
+        if (d) years.add(d.getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [readings]);
 
   useEffect(() => {
     if (!selectedYear && availableYears.length > 0) {
@@ -83,8 +101,10 @@ const Dashboard = () => {
   }, [availableYears, severityYear]);
 
   const totalViolations = readings.length;
+  // Tính lại avg dựa trên số tháng thực tế có dữ liệu
   const avgViolations =
     stats.length > 0 ? Math.round(totalViolations / stats.length) : 0;
+    
   const uniqueOffenders = new Set(readings.map((item) => item.cccd)).size;
   
   const severityDistribution = useMemo(() => {
@@ -95,7 +115,6 @@ const Dashboard = () => {
     const counts = { high: 0, medium: 0, low: 0 };
     readings.forEach((reading) => {
       const date = getReadingDate(reading);
-      // Nếu date sai (do nhân 1000), năm sẽ là 50xxx -> không khớp severityYear
       if (!date || date.getFullYear() !== severityYear) {
         return;
       }
@@ -153,6 +172,7 @@ const Dashboard = () => {
       return [];
     }
 
+    // Tạo khung dữ liệu 12 tháng
     const template = Array.from({ length: 12 }, (_, index) => ({
       monthIndex: index,
       label: `Tháng ${index + 1}`,
@@ -160,17 +180,17 @@ const Dashboard = () => {
       violations: 0,
     }));
 
-    stats
-      .filter((item) => item.year === selectedYear)
-      .forEach((item) => {
-        const monthNumber = parseInt(item.month.replace("Tháng ", ""), 10) - 1;
-        if (monthNumber >= 0 && monthNumber < 12) {
-          template[monthNumber].violations = item.violations;
+    // Duyệt qua dữ liệu gốc để đếm (chính xác hơn dùng stats cũ)
+    readings.forEach((reading) => {
+        const date = getReadingDate(reading);
+        if (date && date.getFullYear() === selectedYear) {
+            const month = date.getMonth(); // 0-11
+            template[month].violations += 1;
         }
-      });
+    });
 
     return template;
-  }, [stats, selectedYear]);
+  }, [readings, selectedYear]);
 
   const yearlyChartData = useMemo(() => {
     const yearMap = new Map<number, number>();
@@ -193,7 +213,7 @@ const Dashboard = () => {
   }, [readings]);
 
   const chartData = chartMode === "month" ? monthlyChartData : yearlyChartData;
-  const hasChartData = chartData.length > 0;
+  const hasChartData = chartData.length > 0 && chartData.some(d => d.violations > 0);
 
   const severityTooltipFormatter: TooltipProps<
     number,
