@@ -36,7 +36,7 @@ def lambda_handler(event, context):
         items.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
         
         # 3. (Tùy chọn) Chỉ lấy 50 bản ghi mới nhất để nhẹ payload
-        recent_items = items[:50]
+        recent_items = items
         
         print(f"Found {len(recent_items)} records.")
 
