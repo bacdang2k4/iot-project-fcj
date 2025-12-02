@@ -1,14 +1,14 @@
 # infrastructure/modules/lambda/main.tf
 
 variable "environment" { type = string }
-variable "function_name" { type = string } # Tên hàm linh hoạt
-variable "source_dir" { type = string }    # Đường dẫn code linh hoạt
-variable "handler" { type = string }       # Handler linh hoạt
-variable "env_vars" {                      # Biến môi trường linh hoạt
+variable "function_name" { type = string } 
+variable "source_dir" { type = string }    
+variable "handler" { type = string }      
+variable "env_vars" {                      
   type    = map(string)
   default = {}
 }
-variable "iam_policy_json" {               # Policy riêng cho từng hàm
+variable "iam_policy_json" {               
   type = string
 }
 

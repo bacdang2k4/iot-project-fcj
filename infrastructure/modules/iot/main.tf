@@ -1,20 +1,16 @@
 # infrastructure/modules/iot/main.tf
 
 variable "environment" { type = string }
-variable "auth_lambda_arn" { type = string }       # ARN hàm Auth
+variable "auth_lambda_arn" { type = string }       
 variable "auth_lambda_name" { type = string }
-variable "violation_lambda_arn" { type = string }  # ARN hàm Violation
+variable "violation_lambda_arn" { type = string }  
 variable "violation_lambda_name" { type = string }
 
-# 1. Thing & Policy (Giữ nguyên hoặc cập nhật Policy full quyền như bạn của bạn)
+# 1. Thing & Policy 
 resource "aws_iot_thing" "esp32" {
   name = "ESP32_Device_${var.environment}"
 }
-
-# ... (Phần Policy & Cert giữ nguyên logic cũ của chúng ta cho an toàn) ...
-
-# 2. RULES (Logic mới)
-
+# 2. RULES 
 # Rule A: Xử lý Đăng nhập (Auth)
 resource "aws_iot_topic_rule" "rule_auth" {
   name        = "Route_Auth_${var.environment}"

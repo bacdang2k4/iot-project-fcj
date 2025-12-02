@@ -20,7 +20,6 @@ def lambda_handler(event, context):
     
     try:
         # 1. Lấy tham số CCCD từ URL (Query String)
-        # Ví dụ: /search?cccd=123456
         query_params = event.get('queryStringParameters', {})
         cccd_number = query_params.get('cccd', None)
         
@@ -32,9 +31,8 @@ def lambda_handler(event, context):
             }
 
         # 2. QUERY vào bảng DynamoDB (Dùng Index CCCDIndex)
-        # IndexName='CCCDIndex' phải khớp với tên trong Terraform database
         response = table.query(
-            IndexName='CCCDIndex', # <--- PHẢI CÓ DÒNG NÀY VÌ CCCD LÀ INDEX
+            IndexName='CCCDIndex',
             KeyConditionExpression=Key('cccd').eq(cccd_number)
         )
         

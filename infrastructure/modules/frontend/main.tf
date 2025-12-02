@@ -9,7 +9,6 @@ resource "aws_amplify_app" "frontend" {
   
   access_token = var.github_token
 
-  # Cấu hình Build cho Vite
   build_spec = <<-EOT
     version: 1
     applications:
@@ -31,7 +30,6 @@ resource "aws_amplify_app" "frontend" {
         appRoot: frontend
   EOT
 
-  # --- SỬA Ở ĐÂY: Đổi REACT_APP_ thành VITE_ ---
   environment_variables = {
     VITE_API_URL        = var.api_url
     AMPLIFY_DIFF_DEPLOY = "false"
@@ -47,7 +45,7 @@ resource "aws_amplify_app" "frontend" {
 
 resource "aws_amplify_branch" "master" {
   app_id      = aws_amplify_app.frontend.id
-  branch_name = "master" # Kiểm tra kỹ xem nhánh của bạn là 'master' hay 'main'
+  branch_name = "master" 
   
   framework = "React"
   stage     = "PRODUCTION"

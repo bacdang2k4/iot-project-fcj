@@ -9,7 +9,7 @@ resource "aws_dynamodb_table" "violations" {
   name           = "iot-violations-${var.environment}"
   billing_mode   = "PAY_PER_REQUEST"
   
-  hash_key       = "violation_id" # <--- ĐỔI VỀ UUID
+  hash_key       = "violation_id"
   range_key      = "timestamp"
 
   attribute {
@@ -23,15 +23,14 @@ resource "aws_dynamodb_table" "violations" {
   }
 
   attribute {
-    name = "cccd" # <--- Thuộc tính này dùng cho Index
+    name = "cccd"
     type = "S"
   }
 
-  # TẠO LẠI INDEX ĐỂ TÌM KIẾM THEO CCCD
   global_secondary_index {
     name               = "CCCDIndex"
     hash_key           = "cccd"
-    range_key          = "timestamp" # Để sắp xếp lịch sử vi phạm của người đó
+    range_key          = "timestamp" 
     projection_type    = "ALL"
   }
 

@@ -1,5 +1,4 @@
 terraform {
-  # Cấu hình backend giữ nguyên như cũ
   backend "s3" {
     bucket         = "my-iot-project-tfstate-store-363636"
     key            = "dev/terraform.tfstate"
@@ -33,7 +32,6 @@ variable "github_token" {
 }
 # ==============================================================================
 # 1. DATABASE MODULE
-# (Bây giờ nó sẽ tạo ra 2 bảng: Violations và Officers)
 # ==============================================================================
 module "database" {
   source      = "../../modules/database"
@@ -48,16 +46,13 @@ module "lambda_violation" {
   environment   = "dev"
   
   function_name = "ProcessViolation"
-  # Trỏ tới thư mục code Python cho xử lý vi phạm
   source_dir    = "${path.module}/../../../services/violation-service"
   handler       = "process_violation.lambda_handler"
   
-  # Truyền tên bảng Vi phạm vào biến môi trường
   env_vars = {
     TABLE_NAME = module.database.violations_table_name
   }
 
-  # Cấp quyền GHI vào bảng Vi phạm
   iam_policy_json = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -69,7 +64,7 @@ module "lambda_violation" {
 }
 
 # ==============================================================================
-# 3. LAMBDA: XÁC THỰC CÁN BỘ (Auth Officer) - MỚI
+# 3. LAMBDA: XÁC THỰC CÁN BỘ (Auth Officer)
 # ==============================================================================
 module "lambda_auth" {
   source        = "../../modules/lambda"
@@ -77,27 +72,24 @@ module "lambda_auth" {
   
   function_name = "AuthOfficer"
   source_dir    = "${path.module}/../../../services/auth-service"
-  handler       = "auth_officer.lambda_handler" # Đã khớp với code python
+  handler       = "auth_officer.lambda_handler"
   
   env_vars = {
     TABLE_NAME = module.database.officers_table_name
   }
 
-  # --- CẬP NHẬT POLICY TẠI ĐÂY ---
   iam_policy_json = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        # Quyền đọc Database
         Action   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"],
         Effect   = "Allow",
         Resource = module.database.officers_table_arn
       },
       {
-        # THÊM QUYỀN NÀY: Cho phép Lambda gửi tin nhắn lại IoT Core
         Action   = ["iot:Publish"],
         Effect   = "Allow",
-        Resource = "*" # Hoặc giới hạn cụ thể topic ARN nếu muốn chặt chẽ
+        Resource = "*" 
       }
     ]
   })
@@ -110,11 +102,9 @@ module "iot" {
   source      = "../../modules/iot"
   environment = "dev"
   
-  # Thông tin Lambda Auth
   auth_lambda_arn  = module.lambda_auth.function_arn
   auth_lambda_name = module.lambda_auth.function_name
   
-  # Thông tin Lambda Violation
   violation_lambda_arn  = module.lambda_violation.function_arn
   violation_lambda_name = module.lambda_violation.function_name
 }
@@ -127,16 +117,13 @@ module "lambda_dashboard" {
   environment   = "dev"
   
   function_name = "GetDashboardFunction"
-  # Trỏ tới thư mục code Python vừa tạo
   source_dir    = "${path.module}/../../../services/dashboard-service"
   handler       = "get_dashboard.lambda_handler"
   
-  # Truyền tên bảng Vi phạm vào biến môi trường
   env_vars = {
     TABLE_NAME = module.database.violations_table_name
   }
 
-  # Cấp quyền CHỈ ĐỌC (Scan/Query) vào bảng Vi phạm
   iam_policy_json = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -161,7 +148,6 @@ module "api" {
   dashboard_lambda_arn  = module.lambda_dashboard.function_arn
   dashboard_lambda_name = module.lambda_dashboard.function_name
   
-  # --- THÊM DÒNG NÀY ---
   search_lambda_arn     = module.lambda_search.function_arn
   search_lambda_name    = module.lambda_search.function_name
 }
@@ -181,7 +167,6 @@ module "lambda_search" {
     TABLE_NAME = module.database.violations_table_name
   }
 
-  # Cấp quyền QUERY vào bảng và đặc biệt là vào INDEX
   iam_policy_json = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -202,13 +187,10 @@ module "frontend" {
   source = "../../modules/frontend"
   environment = "dev"
 
-  # Điền đúng tên user/repo của bạn
   github_repo = "bacdang2k4/iot-project-fcj"
   
-  # Token lấy từ biến đầu vào
   github_token = var.github_token
   
-  # Lấy URL từ API Gateway truyền sang Frontend
   api_url = module.api.api_endpoint 
 }
 

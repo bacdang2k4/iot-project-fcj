@@ -9,14 +9,11 @@ dynamodb = boto3.resource('dynamodb')
 TABLE_NAME = os.environ.get('TABLE_NAME')
 table = dynamodb.Table(TABLE_NAME)
 
-# Helper Class để convert Decimal sang float/int (JSON không hiểu Decimal)
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
-            # Nếu là số nguyên (ví dụ timestamp), trả về int
             if obj % 1 == 0:
                 return int(obj)
-            # Nếu là số thực (ví dụ nồng độ cồn), trả về float
             return float(obj)
         return super(DecimalEncoder, self).default(obj)
 
@@ -25,14 +22,10 @@ def lambda_handler(event, context):
     
     try:
         # 1. Quét toàn bộ bảng (SCAN)
-        # Lưu ý: Với dữ liệu lớn (>1MB), cần phân trang (Pagination). 
-        # Nhưng với đồ án IoT này thì Scan là đủ.
         response = table.scan()
         items = response.get('Items', [])
         
         # 2. Sắp xếp dữ liệu (Mới nhất lên đầu)
-        # Sắp xếp theo timestamp giảm dần (descending)
-        # Đảm bảo trường 'timestamp' tồn tại và là số
         items.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
         
         # 3. (Tùy chọn) Chỉ lấy 50 bản ghi mới nhất để nhẹ payload
