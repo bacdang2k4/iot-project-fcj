@@ -163,5 +163,3 @@ npm run dev
 - **Trần Quốc Dinh** ([@DinhTQSE](https://github.com/DinhTQSE))
 - **Phạm Viết Lợi** ([@Loiprofpt](https://github.com/Loiprofpt))
 - Đồ án chương trình First Cloud Journey - AWS Hồ Chí Minh
----
-*Dự án được xây dựng và quản lý phiên bản trên GitHub.*
